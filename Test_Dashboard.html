@@ -5,100 +5,353 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Complexe LeSims - WhatsApp Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom gradient colors from logo */
+        :root {
+            --gradient-start: #FF69B4; /* Pink */
+            --gradient-end: #9370DB;   /* Purple */
+        }
+
+        body {
+            background-color: #0f1117;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .brand-gradient {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+        }
+
+        .brand-gradient-text {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .card {
+            background: rgba(25, 29, 43, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .glow {
+            box-shadow: 0 0 15px rgba(147, 112, 219, 0.5);
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+        }
+
+        .agent-message {
+            background: rgba(55, 65, 81, 0.7);
+            color: white;
+        }
+
+        /* Futuristic button styles */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            color: white;
+            border: none;
+            box-shadow: 0 4px 14px rgba(147, 112, 219, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(147, 112, 219, 0.6);
+        }
+
+        .btn-secondary {
+            background: rgba(55, 65, 81, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(75, 85, 101, 0.6);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 17, 23, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border-radius: 3px;
+        }
+
+        /* Pulse animation for status indicators */
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(147, 112, 219, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(147, 112, 219, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(147, 112, 219, 0);
+            }
+        }
+
+        .status-pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Typing animation dots */
+        .typing-dots:after {
+            content: '.';
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        /* Loading spinner */
+        .loader {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--gradient-end);
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Status badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        
+        .status-badge.ai {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: #93c5fd;
+        }
+        
+        .status-badge.human {
+            background-color: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+        }
+        
+        /* Conversation item style */
+        .conversation-item {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background-color 0.2s ease;
+        }
+        
+        .conversation-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .conversation-item.active {
+            background-color: rgba(147, 112, 219, 0.1);
+            border-left: 3px solid #9370DB;
+        }
+    </style>
 </head>
-<body class="bg-gray-100">
-    <div class="min-h-screen">
-        <nav class="bg-indigo-600 shadow-md">
+<body>
+    <div class="min-h-screen flex flex-col">
+        <!-- Top navigation bar -->
+        <nav class="brand-gradient shadow-lg">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
-                        <div class="text-white text-xl font-bold">
-                            Complexe LeSims - WhatsApp Dashboard
+                        <div class="flex items-center">
+                            <img src="./logo.jpg" alt="LeSims Logo" class="h-10 w-10 rounded-full mr-3">
+                            <span class="text-white text-xl font-bold">Complexe LeSims</span>
                         </div>
                     </div>
-                    <div class="flex items-center">
-                        <span id="status-indicator" class="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                            Connected
-                        </span>
+                    <div class="flex items-center space-x-4">
+                        <div id="status-indicator" class="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-white">
+                            <span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span>
+                            Disconnected
+                        </div>
+                        <div class="text-white text-sm">
+                            <span class="opacity-70">Agent ID:</span> 
+                            <span id="agent-id-display" class="font-mono ml-1"></span>
+                        </div>
                     </div>
                 </div>
             </div>
         </nav>
 
-        <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-            <div class="px-4 py-6 sm:px-0">
-                <div class="border-4 border-dashed border-gray-200 rounded-lg p-4 bg-white mb-6">
-                    <h2 class="text-lg font-medium text-gray-900">Configuration</h2>
-                    <div class="mt-2 grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <!-- Main content area -->
+        <div class="container mx-auto p-4">
+            <!-- Configuration Panel -->
+            <div class="mb-6 card p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="api-url" class="block text-sm font-medium text-gray-700">API URL</label>
-                            <input type="text" id="api-url" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
-                                   placeholder="https://restaurant-ai-worker.simondomfabrice.workers.dev">
+                            <label for="api-url" class="block text-sm font-medium text-gray-300 mb-1">API URL</label>
+                            <input type="text" id="api-url" class="w-full bg-gray-800 text-white border border-gray-700 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
+                                   placeholder="https://restaurant-ai-worker...">
                         </div>
                         <div>
-                            <label for="api-key" class="block text-sm font-medium text-gray-700">API Key</label>
-                            <input type="password" id="api-key" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" 
+                            <label for="api-key" class="block text-sm font-medium text-gray-300 mb-1">API Key</label>
+                            <input type="password" id="api-key" class="w-full bg-gray-800 text-white border border-gray-700 rounded-md shadow-sm p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" 
                                    placeholder="Your API Key">
                         </div>
                     </div>
-                    <div class="mt-4">
-                        <button id="connect-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                            Connect
+                    <div class="flex items-end space-x-2">
+                        <button id="connect-btn" class="btn-primary py-2 px-4 rounded-md flex-1 flex items-center justify-center">
+                            <i class="fas fa-plug mr-2"></i> Connect
                         </button>
-                        <span id="connection-status" class="ml-2 text-sm text-gray-500">Not connected</span>
+                        <button id="test-connection-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
+                            <i class="fas fa-vial mr-1"></i> Test
+                        </button>
+                        <button id="create-test-data-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
+                            <i class="fas fa-flask mr-1"></i> Test Data
+                        </button>
+                        <div id="connection-status" class="text-sm text-center text-gray-400 ml-2 md:hidden">
+                            Not connected
+                        </div>
                     </div>
                 </div>
+                <div class="mt-2 text-sm text-center text-gray-400 hidden md:block">
+                    <span id="connection-status-desktop">Not connected</span>
+                </div>
+            </div>
 
-                <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
-                    <div class="col-span-2">
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <h3 class="text-lg leading-6 font-medium text-gray-900">Active Conversations</h3>
-                                <div class="mt-4">
-                                    <div class="flow-root">
-                                        <ul id="conversation-list" class="divide-y divide-gray-200">
-                                            <li class="py-4 flex items-center justify-between text-sm text-gray-500">
-                                                Loading conversations...
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
+            <!-- Main Content Area -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <!-- Left side: Conversation List -->
+                <div class="md:col-span-3">
+                    <div class="card overflow-hidden">
+                        <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                            <h3 class="brand-gradient-text text-lg font-semibold">Active Conversations</h3>
+                            <button id="refresh-list-btn" class="btn-secondary h-8 w-8 rounded-md flex items-center justify-center text-sm">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="conversation-list" class="max-h-96 overflow-y-auto">
+                            <div class="text-gray-500 text-center p-6">
+                                <i class="fas fa-plug mb-2 text-2xl opacity-30"></i>
+                                <p>Connect to view conversations...</p>
                             </div>
                         </div>
                     </div>
                     
-                    <div>
-                        <div class="bg-white overflow-hidden shadow rounded-lg">
-                            <div class="px-4 py-5 sm:p-6">
-                                <h3 class="text-lg leading-6 font-medium text-gray-900">Stats</h3>
-                                <dl class="mt-5 grid grid-cols-1 gap-5">
-                                    <div class="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            Total Active Conversations
-                                        </dt>
-                                        <dd id="total-conversations" class="mt-1 text-3xl font-semibold text-gray-900">
-                                            0
-                                        </dd>
-                                    </div>
-                                    <div class="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            Human-handled
-                                        </dt>
-                                        <dd id="human-handled" class="mt-1 text-3xl font-semibold text-gray-900">
-                                            0
-                                        </dd>
-                                    </div>
-                                    <div class="px-4 py-5 bg-gray-50 shadow rounded-lg overflow-hidden sm:p-6">
-                                        <dt class="text-sm font-medium text-gray-500 truncate">
-                                            AI-handled
-                                        </dt>
-                                        <dd id="ai-handled" class="mt-1 text-3xl font-semibold text-gray-900">
-                                            0
-                                        </dd>
-                                    </div>
-                                </dl>
+                    <!-- Conversation Detail Section (initially hidden) -->
+                    <div id="conversation-detail" class="mt-6 card overflow-hidden hidden">
+                        <div class="p-4 border-b border-gray-800 flex justify-between items-center">
+                            <div class="flex items-center">
+                                <div class="h-8 w-8 rounded-full bg-gray-700 flex items-center justify-center mr-3">
+                                    <i class="fas fa-user text-sm"></i>
+                                </div>
+                                <div>
+                                    <h3 id="user-id" class="font-medium text-white"></h3>
+                                    <span id="conversation-status" class="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300"></span>
+                                </div>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button id="take-over-btn" class="btn-primary h-9 px-3 rounded-md text-sm flex items-center">
+                                    <i class="fas fa-headset mr-1"></i> Take Over
+                                </button>
+                                <button id="hand-back-btn" class="btn-secondary h-9 px-3 rounded-md text-sm flex items-center hidden">
+                                    <i class="fas fa-robot mr-1"></i> Hand Back
+                                </button>
+                                <button id="refresh-conversation-btn" class="btn-secondary h-9 px-3 rounded-md text-sm">
+                                    <i class="fas fa-sync-alt mr-1"></i> Refresh
+                                </button>
+                                <button id="reset-conversation-btn" class="bg-red-600 hover:bg-red-700 text-white h-9 px-3 rounded-md text-sm">
+                                    <i class="fas fa-redo-alt mr-1"></i> Reset
+                                </button>
                             </div>
                         </div>
+                        
+                        <div class="h-96 overflow-y-auto p-4 bg-gray-900">
+                            <div id="conversation-messages" class="space-y-4">
+                                <!-- Messages will appear here -->
+                            </div>
+                        </div>
+                        
+                        <div class="p-4 border-t border-gray-800">
+                            <form id="send-message-form" class="flex space-x-3">
+                                <div class="flex-grow relative">
+                                    <textarea id="message" name="message" rows="1" 
+                                              class="w-full bg-gray-800 text-white border border-gray-700 rounded-md shadow-sm py-2 px-4 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                                              placeholder="Type a message..." disabled></textarea>
+                                    <span class="absolute right-3 bottom-2 text-gray-400 text-xs italic typing-dots hidden"></span>
+                                </div>
+                                <button type="submit" 
+                                        class="btn-primary px-4 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                                        disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Right side: Stats -->
+                <div class="md:col-span-1">
+                    <div class="card p-4">
+                        <h3 class="brand-gradient-text text-lg font-semibold mb-4">Stats</h3>
+                        <div class="space-y-4">
+                            <div class="p-4 bg-gray-800 rounded-lg">
+                                <div class="text-sm text-gray-400">Active Conversations</div>
+                                <div id="total-conversations" class="text-3xl font-bold mt-1">0</div>
+                            </div>
+                            
+                            <div class="p-4 bg-gray-800 rounded-lg">
+                                <div class="text-sm text-gray-400">Human-handled</div>
+                                <div id="human-handled" class="text-3xl font-bold mt-1 text-purple-400">0</div>
+                            </div>
+                            
+                            <div class="p-4 bg-gray-800 rounded-lg">
+                                <div class="text-sm text-gray-400">AI-handled</div>
+                                <div id="ai-handled" class="text-3xl font-bold mt-1 text-blue-400">0</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Debug Console Section -->
+            <div class="mt-6 card overflow-hidden">
+                <div class="flex items-center justify-between p-2 px-4 cursor-pointer" id="debug-header">
+                    <h3 class="text-sm font-medium text-gray-400">Debug Console</h3>
+                    <div class="flex items-center">
+                        <button id="clear-console-btn" class="h-6 w-6 rounded flex items-center justify-center text-gray-400 hover:text-white text-xs mr-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button id="toggle-console-btn" class="h-6 w-6 rounded flex items-center justify-center text-gray-400 hover:text-white text-xs">
+                            <i class="fas fa-chevron-up"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="debug-container" class="h-48 transition-all duration-300">
+                    <div class="h-full bg-gray-950 p-3 overflow-y-auto font-mono text-xs">
+                        <pre id="debug-console" class="text-green-400">// Console output will appear here</pre>
                     </div>
                 </div>
             </div>
@@ -106,352 +359,586 @@
     </div>
 
     <script>
-        // Dashboard state
-        let dashboardState = {
-            apiUrl: null,
-            apiKey: null,
-            connected: false,
-            conversations: [],
-            selectedUserId: null,
-            agentId: 'dashboard-agent', // This could be customized per agent
-            refreshInterval: null
-        };
+    // Dashboard state
+    let dashboardState = {
+        apiUrl: null,
+        apiKey: null,
+        connected: false,
+        conversations: [],
+        selectedUserId: null,
+        agentId: 'dashboard-' + Date.now().toString().slice(-6), // Create a unique agent ID
+        refreshInterval: null
+    };
 
-        // DOM Elements
-        const elements = {
-            apiUrl: document.getElementById('api-url'),
-            apiKey: document.getElementById('api-key'),
-            connectBtn: document.getElementById('connect-btn'),
-            connectionStatus: document.getElementById('connection-status'),
-            statusIndicator: document.getElementById('status-indicator'),
-            conversationList: document.getElementById('conversation-list'),
-            totalConversations: document.getElementById('total-conversations'),
-            humanHandled: document.getElementById('human-handled'),
-            aiHandled: document.getElementById('ai-handled'),
-            conversationDetail: document.getElementById('conversation-detail'),
-            userId: document.getElementById('user-id'),
-            conversationMessages: document.getElementById('conversation-messages'),
-            takeOverBtn: document.getElementById('take-over-btn'),
-            handBackBtn: document.getElementById('hand-back-btn'),
-            sendMessageForm: document.getElementById('send-message-form'),
-            messageInput: document.getElementById('message')
-        };
+    // Update agent ID display
+    document.getElementById('agent-id-display').textContent = dashboardState.agentId;
 
-        // API Functions
-        const api = {
-            // Make an API request with auth headers
-            async request(endpoint, method = 'GET', body = null) {
-                try {
-                    const url = `${dashboardState.apiUrl}${endpoint}`;
-                    const options = {
-                        method,
-                        headers: {
-                            'Authorization': `Bearer ${dashboardState.apiKey}`,
-                            'Content-Type': 'application/json'
-                        }
-                    };
-                    
-                    if (body) {
-                        options.body = JSON.stringify(body);
+    // Utility Functions
+    function logToConsole(message, isError = false) {
+        const console = document.getElementById('debug-console');
+        const timestamp = new Date().toLocaleTimeString();
+        const formattedMessage = `[${timestamp}] ${message}`;
+        
+        console.innerHTML += isError 
+            ? `<span class="text-red-400">${formattedMessage}</span>\n` 
+            : `${formattedMessage}\n`;
+        
+        // Auto scroll to bottom
+        console.scrollTop = console.scrollHeight;
+    }
+
+    // DOM Elements
+    const elements = {
+        apiUrl: document.getElementById('api-url'),
+        apiKey: document.getElementById('api-key'),
+        connectBtn: document.getElementById('connect-btn'),
+        testConnectionBtn: document.getElementById('test-connection-btn'),
+        createTestDataBtn: document.getElementById('create-test-data-btn'),
+        connectionStatus: document.getElementById('connection-status'),
+        connectionStatusDesktop: document.getElementById('connection-status-desktop'),
+        statusIndicator: document.getElementById('status-indicator'),
+        conversationList: document.getElementById('conversation-list'),
+        totalConversations: document.getElementById('total-conversations'),
+        humanHandled: document.getElementById('human-handled'),
+        aiHandled: document.getElementById('ai-handled'),
+        conversationDetail: document.getElementById('conversation-detail'),
+        userId: document.getElementById('user-id'),
+        conversationMessages: document.getElementById('conversation-messages'),
+        takeOverBtn: document.getElementById('take-over-btn'),
+        handBackBtn: document.getElementById('hand-back-btn'),
+        refreshConversationBtn: document.getElementById('refresh-conversation-btn'),
+        resetConversationBtn: document.getElementById('reset-conversation-btn'),
+        sendMessageForm: document.getElementById('send-message-form'),
+        messageInput: document.getElementById('message'),
+        clearConsoleBtn: document.getElementById('clear-console-btn'),
+        toggleConsoleBtn: document.getElementById('toggle-console-btn'),
+        debugContainer: document.getElementById('debug-container'),
+        debugHeader: document.getElementById('debug-header'),
+        refreshListBtn: document.getElementById('refresh-list-btn')
+    };
+
+    // API Functions
+    const api = {
+        // Make an API request with auth headers
+        async request(endpoint, method = 'GET', body = null) {
+            try {
+                logToConsole(`Making ${method} request to ${dashboardState.apiUrl}${endpoint}`);
+                const url = `${dashboardState.apiUrl}${endpoint}`;
+                const options = {
+                    method,
+                    headers: {
+                        'Authorization': `Bearer ${dashboardState.apiKey}`,
+                        'Content-Type': 'application/json'
                     }
-                    
-                    const response = await fetch(url, options);
-                    
-                    if (!response.ok) {
-                        throw new Error(`API error: ${response.status} - ${await response.text()}`);
-                    }
-                    
-                    return await response.json();
-                } catch (error) {
-                    console.error('API request failed:', error);
-                    ui.updateConnectionStatus(false, error.message);
-                    throw error;
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
                 }
-            },
+                
+                const response = await fetch(url, options);
+                logToConsole(`Response status: ${response.status}`);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    logToConsole(`API error response: ${errorText}`, true);
+                    throw new Error(`API error: ${response.status} - ${errorText}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                logToConsole(`API request failed: ${error.message}`, true);
+                throw error;
+            }
+        },
+        
+        // Get all conversations
+        async getConversations() {
+            return api.request('/api/conversations');
+        },
+        
+        // Get a specific conversation
+        async getConversation(userId) {
+            return api.request(`/api/conversation?userId=${encodeURIComponent(userId)}`);
+        },
+        
+        // Update conversation status (take over or hand back)
+        async updateStatus(userId, status) {
+            logToConsole(`Updating conversation status for ${userId} to ${status} with agent ${dashboardState.agentId}`);
             
-            // Get all conversations
-            async getConversations() {
-                return api.request('/api/conversations');
-            },
-            
-            // Get a specific conversation
-            async getConversation(userId) {
-                return api.request(`/api/conversation?userId=${userId}`);
-            },
-            
-            // Update conversation status (take over or hand back)
-            async updateStatus(userId, status) {
-                return api.request(
-                    `/api/conversation/status?userId=${userId}`,
+            try {
+                const result = await api.request(
+                    `/api/conversation/status?userId=${encodeURIComponent(userId)}`,
                     'PUT',
                     {
                         agentId: dashboardState.agentId,
-                        status
+                        status: status
                     }
                 );
-            },
+                
+                logToConsole(`Status update result: ${JSON.stringify(result)}`);
+                return result;
+            } catch (error) {
+                logToConsole(`Status update error: ${error.message}`, true);
+                throw error;
+            }
+        },
+        
+        // Send a message as an agent
+        async sendMessage(userId, message) {
+            logToConsole(`Sending message to ${userId}: "${message}" from agent ${dashboardState.agentId}`);
             
-            // Send a message as an agent
-            async sendMessage(userId, message) {
-                return api.request(
-                    `/api/conversation/message?userId=${userId}`,
+            try {
+                // First make sure we're still handling this conversation
+                const conversationData = await this.getConversation(userId);
+                const metadata = conversationData.metadata || {};
+                
+                if (metadata.status !== 'human-handled' || metadata.handledBy !== dashboardState.agentId) {
+                    logToConsole(`Warning: This agent (${dashboardState.agentId}) is not currently handling this conversation. Status: ${metadata.status}, Handler: ${metadata.handledBy}`, true);
+                    
+                    // Try to take over the conversation again
+                    logToConsole(`Attempting to take over the conversation again...`);
+                    await this.updateStatus(userId, 'human-handled');
+                }
+                
+                // Skip WhatsApp sending for test users
+                const isTestUser = userId.startsWith('test_');
+                
+                if (!isTestUser) {
+                    // STEP 1: Send message directly to WhatsApp
+                    logToConsole(`Sending message to WhatsApp for user: ${userId}`);
+                    try {
+                        const whatsappResult = await api.request(
+                            `/api/whatsapp/send`,
+                            'POST',
+                            {
+                                userId: userId,
+                                message: message
+                            }
+                        );
+                        logToConsole(`WhatsApp message sent: ${JSON.stringify(whatsappResult)}`);
+                    } catch (whatsappError) {
+                        logToConsole(`Failed to send WhatsApp message: ${whatsappError.message}`, true);
+                        // Continue anyway to store in chat history
+                    }
+                } else {
+                    logToConsole(`Skipping WhatsApp send for test user: ${userId}`);
+                }
+                
+                // STEP 2: Store the message in the conversation history (as before)
+                const result = await api.request(
+                    `/api/conversation/message?userId=${encodeURIComponent(userId)}`,
                     'POST',
                     {
                         agentId: dashboardState.agentId,
-                        message
+                        message: message
                     }
                 );
-            },
+                
+                logToConsole(`Message stored in history: ${JSON.stringify(result)}`);
+                return result;
+            } catch (error) {
+                logToConsole(`Send message error: ${error.message}`, true);
+                throw error;
+            }
+        },
+        
+        // Create test data
+        async createTestData() {
+            const testUserId = `test_${Date.now()}`;
+            logToConsole(`Creating test data for user ID: ${testUserId}`);
             
-            // Test connection to API
-            async testConnection() {
-                try {
-                    await api.getConversations();
-                    return true;
-                } catch (error) {
-                    return false;
+            return api.request(
+                '/api/test/create-data',
+                'POST',
+                {
+                    userId: testUserId
+                }
+            );
+        },
+        
+        // Test connection to API
+        async testConnection() {
+            try {
+                logToConsole('Testing connection to API...');
+                const result = await api.getConversations();
+                logToConsole('Connection test successful. API response:');
+                logToConsole(JSON.stringify(result, null, 2));
+                return true;
+            } catch (error) {
+                logToConsole(`Connection test failed: ${error.message}`, true);
+                return false;
+            }
+        }
+    };
+
+    // UI Functions
+    const ui = {
+        // Update the connection status indicator
+        updateConnectionStatus(connected, message = '') {
+            logToConsole(`Updating connection status: connected=${connected}, message=${message || 'N/A'}`);
+            dashboardState.connected = connected;
+            elements.connectionStatus.textContent = message || (connected ? 'Connected' : 'Not connected');
+            elements.connectionStatusDesktop.textContent = message || (connected ? 'Connected' : 'Not connected');
+            
+            if (connected) {
+                elements.statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-green-500 status-pulse"></span> Connected';
+                elements.statusIndicator.classList.remove('bg-red-900');
+                elements.statusIndicator.classList.add('bg-green-900');
+                elements.connectBtn.innerHTML = '<i class="fas fa-plug-circle-xmark mr-2"></i> Disconnect';
+            } else {
+                elements.statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span> Disconnected';
+                elements.statusIndicator.classList.remove('bg-green-900');
+                elements.statusIndicator.classList.add('bg-red-900');
+                elements.connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i> Connect';
+                
+                // Clear conversation data when disconnected
+                ui.clearConversationList();
+                ui.hideConversationDetail();
+                
+                // Cancel auto-refresh
+                if (dashboardState.refreshInterval) {
+                    clearInterval(dashboardState.refreshInterval);
+                    dashboardState.refreshInterval = null;
                 }
             }
-        };
-
-        // UI Functions
-        const ui = {
-            // Update the connection status indicator
-            updateConnectionStatus(connected, message = '') {
-                dashboardState.connected = connected;
-                elements.connectionStatus.textContent = message || (connected ? 'Connected' : 'Not connected');
-                
-                if (connected) {
-                    elements.statusIndicator.textContent = 'Connected';
-                    elements.statusIndicator.classList.remove('bg-red-100', 'text-red-800');
-                    elements.statusIndicator.classList.add('bg-green-100', 'text-green-800');
-                    elements.connectBtn.textContent = 'Disconnect';
-                } else {
-                    elements.statusIndicator.textContent = 'Disconnected';
-                    elements.statusIndicator.classList.remove('bg-green-100', 'text-green-800');
-                    elements.statusIndicator.classList.add('bg-red-100', 'text-red-800');
-                    elements.connectBtn.textContent = 'Connect';
-                    
-                    // Clear conversation data when disconnected
-                    ui.clearConversationList();
-                    ui.hideConversationDetail();
+        },
+        
+        // Refresh the conversation list
+        async refreshConversationList() {
+            try {
+                logToConsole('Refreshing conversation list...');
+                if (!dashboardState.connected) {
+                    logToConsole('Not refreshing conversations because not connected', true);
+                    return;
                 }
-            },
-            
-            // Refresh the conversation list
-            async refreshConversationList() {
-                try {
-                    const data = await api.getConversations();
-                    dashboardState.conversations = data.conversations || [];
+                
+                // Show loading indicator
+                elements.refreshListBtn.innerHTML = '<div class="loader"></div>';
+                
+                const data = await api.getConversations();
+                logToConsole(`Received ${data.conversations ? data.conversations.length : 0} conversations`);
+                dashboardState.conversations = data.conversations || [];
+                
+                // Update stats with animation
+                animateCounter(elements.totalConversations, parseInt(elements.totalConversations.textContent), dashboardState.conversations.length);
+                animateCounter(elements.humanHandled, parseInt(elements.humanHandled.textContent), dashboardState.conversations.filter(c => c.status === 'human-handled').length);
+                animateCounter(elements.aiHandled, parseInt(elements.aiHandled.textContent), dashboardState.conversations.filter(c => c.status === 'ai-handled').length);
+                
+                // Clear and rebuild the list
+                elements.conversationList.innerHTML = '';
+                
+                if (dashboardState.conversations.length === 0) {
+                    elements.conversationList.innerHTML = `
+                        <div class="text-gray-500 text-center p-8">
+                            <i class="fas fa-comments mb-2 text-2xl opacity-30"></i>
+                            <p>No active conversations</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Add each conversation to the list
+                dashboardState.conversations.forEach(conversation => {
+                    const listItem = document.createElement('div');
+                    listItem.className = 'conversation-item p-4 cursor-pointer';
                     
-                    // Update stats
-                    elements.totalConversations.textContent = dashboardState.conversations.length;
-                    elements.humanHandled.textContent = dashboardState.conversations.filter(c => c.status === 'human-handled').length;
-                    elements.aiHandled.textContent = dashboardState.conversations.filter(c => c.status === 'ai-handled').length;
-                    
-                    // Clear and rebuild the list
-                    elements.conversationList.innerHTML = '';
-                    
-                    if (dashboardState.conversations.length === 0) {
-                        elements.conversationList.innerHTML = `
-                            <li class="py-4 flex items-center justify-between text-sm text-gray-500">
-                                No active conversations
-                            </li>
-                        `;
-                        return;
+                    if (dashboardState.selectedUserId === conversation.userId) {
+                        listItem.classList.add('active');
                     }
                     
-                    // Add each conversation to the list
-                    dashboardState.conversations.forEach(conversation => {
-                        const listItem = document.createElement('li');
-                        listItem.className = 'py-4 flex hover:bg-gray-50 cursor-pointer';
-                        
-                        // Format timestamp
-                        const timestamp = new Date(conversation.lastTimestamp).toLocaleString();
-                        
-                        // Status color
-                        const statusColor = conversation.status === 'human-handled' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800';
-                        
-                        listItem.innerHTML = `
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <p class="text-sm font-medium text-indigo-600 truncate">
-                                        ${conversation.userId}
-                                    </p>
-                                    <div class="ml-2 flex-shrink-0 flex">
-                                        <p class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">
-                                            ${conversation.status}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div class="mt-2 flex justify-between">
-                                    <div class="sm:flex">
-                                        <p class="flex items-center text-sm text-gray-500">
-                                            ${conversation.messageCount} messages
-                                        </p>
-                                    </div>
-                                    <p class="text-sm text-gray-500">${timestamp}</p>
-                                </div>
-                                <p class="mt-1 text-sm text-gray-600 truncate">
-                                    ${conversation.lastRole === 'user' ? '👤 ' : '🤖 '}
-                                    ${conversation.lastMessage}
-                                </p>
+                    // Format timestamp
+                    const timestamp = new Date(conversation.lastTimestamp || Date.now()).toLocaleString();
+                    
+                    // Status badge
+                    let statusBadgeClass, statusText;
+                    if (conversation.status === 'human-handled') {
+                        statusBadgeClass = 'human';
+                        statusText = 'human-handled';
+                    } else {
+                        statusBadgeClass = 'ai';
+                        statusText = 'ai-handled';
+                    }
+                    
+                    listItem.innerHTML = `
+                        <div class="flex flex-col space-y-2">
+                            <div class="flex justify-between items-center">
+                                <div class="font-medium text-purple-300">${conversation.userId}</div>
+                                <span class="status-badge ${statusBadgeClass}">${statusText}</span>
                             </div>
-                        `;
+                            <div class="text-sm text-gray-400 truncate">
+                                ${conversation.lastRole === 'user' ? '👤 ' : '🤖 '}
+                                ${conversation.lastMessage || '(No messages)'}
+                            </div>
+                            <div class="flex justify-between items-center text-xs text-gray-500">
+                                <span>${conversation.messageCount || 0} messages</span>
+                                <span>${formatRelativeTime(conversation.lastTimestamp)}</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add click handler to show conversation detail
+                    listItem.addEventListener('click', () => {
+                        ui.showConversationDetail(conversation.userId);
                         
-                        // Add click handler to show conversation detail
-                        listItem.addEventListener('click', () => {
-                            ui.showConversationDetail(conversation.userId);
+                        // Highlight selected conversation
+                        document.querySelectorAll('.conversation-item').forEach(item => {
+                            item.classList.remove('active');
                         });
-                        
-                        elements.conversationList.appendChild(listItem);
+                        listItem.classList.add('active');
                     });
                     
-                    // If we have a selected conversation, refresh it
-                    if (dashboardState.selectedUserId) {
-                        ui.refreshConversationDetail();
-                    }
-                } catch (error) {
-                    console.error('Failed to refresh conversations:', error);
-                }
-            },
-            
-            // Clear the conversation list
-            clearConversationList() {
-                elements.conversationList.innerHTML = `
-                    <li class="py-4 flex items-center justify-between text-sm text-gray-500">
-                        Not connected
-                    </li>
-                `;
-                elements.totalConversations.textContent = '0';
-                elements.humanHandled.textContent = '0';
-                elements.aiHandled.textContent = '0';
-            },
-            
-            // Show conversation detail
-            async showConversationDetail(userId) {
-                try {
-                    dashboardState.selectedUserId = userId;
-                    elements.userId.textContent = userId;
-                    elements.conversationDetail.classList.remove('hidden');
-                    
-                    await ui.refreshConversationDetail();
-                } catch (error) {
-                    console.error('Failed to show conversation:', error);
-                }
-            },
-            
-            // Hide conversation detail
-            hideConversationDetail() {
-                dashboardState.selectedUserId = null;
-                elements.conversationDetail.classList.add('hidden');
-                elements.conversationMessages.innerHTML = '';
-            },
-            
-            // Refresh the conversation detail view
-            async refreshConversationDetail() {
-                if (!dashboardState.selectedUserId) return;
+                    elements.conversationList.appendChild(listItem);
+                });
                 
-                try {
-                    const data = await api.getConversation(dashboardState.selectedUserId);
-                    
-                    // Update UI based on conversation status
-                    const isHumanHandled = data.metadata.status === 'human-handled';
-                    
-                    if (isHumanHandled && data.metadata.handledBy === dashboardState.agentId) {
-                        // This agent is handling the conversation
-                        elements.takeOverBtn.classList.add('hidden');
-                        elements.handBackBtn.classList.remove('hidden');
-                        elements.messageInput.disabled = false;
-                    } else if (isHumanHandled) {
-                        // Another agent is handling it
-                        elements.takeOverBtn.classList.add('hidden');
-                        elements.handBackBtn.classList.add('hidden');
-                        elements.messageInput.disabled = true;
-                        elements.messageInput.placeholder = `Being handled by ${data.metadata.handledBy}`;
-                    } else {
-                        // AI is handling it
-                        elements.takeOverBtn.classList.remove('hidden');
-                        elements.handBackBtn.classList.add('hidden');
-                        elements.messageInput.disabled = true;
-                        elements.messageInput.placeholder = 'Take over to send messages';
-                    }
-                    
-                    // Clear and rebuild the message list
-                    elements.conversationMessages.innerHTML = '';
-                    
-                    // Add each message
+                // If we have a selected conversation, refresh it
+                if (dashboardState.selectedUserId) {
+                    ui.refreshConversationDetail();
+                }
+                
+                // Restore the refresh button
+                elements.refreshListBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+                
+            } catch (error) {
+                logToConsole(`Failed to refresh conversations: ${error.message}`, true);
+                elements.refreshListBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            }
+        },
+        
+        // Clear the conversation list
+        clearConversationList() {
+            elements.conversationList.innerHTML = `
+                <div class="text-gray-500 text-center p-8">
+                    <i class="fas fa-plug mb-2 text-2xl opacity-30"></i>
+                    <p>Connect to view conversations...</p>
+                </div>
+            `;
+            elements.totalConversations.textContent = '0';
+            elements.humanHandled.textContent = '0';
+            elements.aiHandled.textContent = '0';
+        },
+        
+        // Show conversation detail
+        async showConversationDetail(userId) {
+            try {
+                logToConsole(`Loading conversation details for user: ${userId}`);
+                dashboardState.selectedUserId = userId;
+                elements.userId.textContent = userId;
+                elements.conversationDetail.classList.remove('hidden');
+                
+                await ui.refreshConversationDetail();
+            } catch (error) {
+                logToConsole(`Failed to show conversation: ${error.message}`, true);
+            }
+        },
+        
+        // Hide conversation detail
+        hideConversationDetail() {
+            dashboardState.selectedUserId = null;
+            elements.conversationDetail.classList.add('hidden');
+            elements.conversationMessages.innerHTML = '';
+        },
+        
+        // Refresh the conversation detail view
+        async refreshConversationDetail() {
+            if (!dashboardState.selectedUserId) return;
+            
+            try {
+                logToConsole(`Refreshing conversation detail for user: ${dashboardState.selectedUserId}`);
+                
+                // Show loading indicator
+                elements.refreshConversationBtn.innerHTML = '<div class="loader mr-1"></div> Refreshing';
+                
+                const data = await api.getConversation(dashboardState.selectedUserId);
+                
+                // Log metadata to help with debugging
+                logToConsole(`Conversation metadata: ${JSON.stringify(data.metadata || {})}`);
+                
+                // Update UI based on conversation status
+                const isHumanHandled = data.metadata && data.metadata.status === 'human-handled';
+                const isHandledByThisAgent = isHumanHandled && data.metadata.handledBy === dashboardState.agentId;
+                
+                logToConsole(`Conversation status: ${isHumanHandled ? 'human-handled' : 'ai-handled'}, Handler: ${data.metadata?.handledBy || 'none'}, This agent: ${dashboardState.agentId}`);
+                
+                // Display current status in the UI
+                const statusDisplay = document.getElementById('conversation-status');
+                if (isHandledByThisAgent) {
+                    statusDisplay.textContent = 'You are handling this';
+                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-green-800 text-white';
+                } else if (isHumanHandled) {
+                    statusDisplay.textContent = `Agent: ${data.metadata.handledBy || 'unknown'}`;
+                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-purple-800 text-white';
+                } else {
+                    statusDisplay.textContent = 'AI is handling';
+                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-blue-800 text-white';
+                }
+                
+                // Update buttons and input field state
+                if (isHandledByThisAgent) {
+                    // This agent is handling the conversation
+                    logToConsole(`This agent is handling the conversation`);
+                    elements.takeOverBtn.classList.add('hidden');
+                    elements.handBackBtn.classList.remove('hidden');
+                    elements.messageInput.disabled = false;
+                    elements.messageInput.placeholder = 'Type a message...';
+                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = false;
+                } else if (isHumanHandled) {
+                    // Another agent is handling it
+                    logToConsole(`Another agent (${data.metadata.handledBy}) is handling the conversation`);
+                    elements.takeOverBtn.classList.add('hidden');
+                    elements.handBackBtn.classList.add('hidden');
+                    elements.messageInput.disabled = true;
+                    elements.messageInput.placeholder = `Being handled by ${data.metadata.handledBy || 'another agent'}`;
+                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
+                } else {
+                    // AI is handling it
+                    logToConsole(`AI is handling the conversation`);
+                    elements.takeOverBtn.classList.remove('hidden');
+                    elements.handBackBtn.classList.add('hidden');
+                    elements.messageInput.disabled = true;
+                    elements.messageInput.placeholder = 'Take over to send messages';
+                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
+                }
+                
+                // Clear and rebuild the message list
+                elements.conversationMessages.innerHTML = '';
+                
+                // Add each message
+                if (data.messages && Array.isArray(data.messages)) {
                     data.messages.forEach(message => {
                         const messageDiv = document.createElement('div');
                         const isUser = message.role === 'user';
                         
                         messageDiv.className = isUser
                             ? 'flex items-end justify-end'
-                            : 'flex items-end';
+                            : 'flex items-start';
                             
-                        const messageBgColor = isUser
-                            ? 'bg-indigo-500 text-white'
-                            : 'bg-gray-200 text-gray-800';
+                        const messageBubbleClass = isUser
+                            ? 'user-message rounded-l-lg rounded-br-lg ml-12'
+                            : 'agent-message rounded-r-lg rounded-bl-lg mr-12';
                             
                         const timestamp = message.timestamp 
-                            ? new Date(message.timestamp).toLocaleTimeString() 
+                            ? new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
                             : '';
                         
                         messageDiv.innerHTML = `
-                            <div class="flex flex-col space-y-2 text-sm max-w-xs mx-2 ${isUser ? 'order-1 items-end' : 'order-2 items-start'}">
+                            <div class="${isUser ? 'order-2' : 'order-1'} flex-shrink-0 h-8 w-8 rounded-full ${isUser ? 'bg-purple-800' : 'bg-gray-700'} flex items-center justify-center mr-2">
+                                <i class="fas fa-${isUser ? 'user' : 'robot'} text-xs text-white"></i>
+                            </div>
+                            <div class="flex flex-col space-y-1 text-sm max-w-xs mx-2 ${isUser ? 'order-1 items-end' : 'order-2 items-start'}">
                                 <div>
-                                    <span class="px-4 py-2 rounded-lg inline-block ${messageBgColor}">
+                                    <span class="px-4 py-2 inline-block ${messageBubbleClass}">
                                         ${message.content}
                                     </span>
                                 </div>
-                                <span class="text-xs text-gray-500">
+                                <div class="text-xs text-gray-500 flex ${isUser ? 'justify-end' : 'justify-start'} w-full px-1">
                                     ${timestamp}
-                                    ${message.sentBy ? `· ${message.sentBy}` : ''}
-                                </span>
-                            </div>
-                            <div class="${isUser ? 'order-2' : 'order-1'} mx-2">
-                                <div class="flex items-center justify-center h-10 w-10 rounded-full bg-gray-300">
-                                    ${isUser ? '👤' : '🤖'}
+                                    ${message.sentBy ? `<span class="ml-1 opacity-70">· ${message.sentBy}</span>` : ''}
                                 </div>
                             </div>
                         `;
                         
                         elements.conversationMessages.appendChild(messageDiv);
                     });
-                    
-                    // Scroll to bottom
-                    elements.conversationMessages.scrollTop = elements.conversationMessages.scrollHeight;
-                    
-                } catch (error) {
-                    console.error('Failed to refresh conversation detail:', error);
-                }
-            }
-        };
-
-        // Event Handlers
-        function setupEventListeners() {
-            // Connect/Disconnect button
-            elements.connectBtn.addEventListener('click', async () => {
-                if (dashboardState.connected) {
-                    // Disconnect
-                    clearInterval(dashboardState.refreshInterval);
-                    dashboardState.refreshInterval = null;
-                    ui.updateConnectionStatus(false);
                 } else {
-                    // Connect
-                    dashboardState.apiUrl = elements.apiUrl.value.trim();
-                    dashboardState.apiKey = elements.apiKey.value.trim();
-                    
-                    if (!dashboardState.apiUrl || !dashboardState.apiKey) {
-                        ui.updateConnectionStatus(false, 'API URL and Key are required');
-                        return;
-                    }
-                    
-                    // Test connection
-                    ui.updateConnectionStatus(false, 'Connecting...');
+                    logToConsole('No messages found or invalid message format', true);
+                    elements.conversationMessages.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="far fa-comment-dots text-4xl mb-2 opacity-30"></i>
+                            <p>No messages found</p>
+                        </div>
+                    `;
+                }
+                
+                // Scroll to bottom
+                elements.conversationMessages.scrollTop = elements.conversationMessages.scrollHeight;
+                
+                // Restore the refresh button
+                elements.refreshConversationBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
+                
+            } catch (error) {
+                logToConsole(`Failed to refresh conversation detail: ${error.message}`, true);
+                elements.refreshConversationBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
+            }
+        }
+    };
+
+    // Utility functions
+    function formatRelativeTime(timestamp) {
+        if (!timestamp) return 'N/A';
+        
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSecs = Math.floor(diffMs / 1000);
+        const diffMins = Math.floor(diffSecs / 60);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffSecs < 60) return 'just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return date.toLocaleDateString();
+    }
+    
+    function animateCounter(element, start, end) {
+        if (start === end) return;
+        
+        const duration = 1000; // ms
+        const startTime = performance.now();
+        
+        function updateCounter(timestamp) {
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // Easing function (ease-out)
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            
+            const current = Math.floor(start + (end - start) * easeProgress);
+            element.textContent = current;
+            
+            if (progress < 1) {
+                requestAnimationFrame(updateCounter);
+            } else {
+                element.textContent = end;
+            }
+        }
+        
+        requestAnimationFrame(updateCounter);
+    }
+
+    // Event Handler Setup
+    function setupEventListeners() {
+        // Connect/Disconnect button
+        elements.connectBtn.addEventListener('click', async () => {
+            logToConsole(`Connect button clicked. Current state: ${dashboardState.connected ? 'connected' : 'disconnected'}`);
+            
+            if (dashboardState.connected) {
+                // Disconnect
+                clearInterval(dashboardState.refreshInterval);
+                dashboardState.refreshInterval = null;
+                ui.updateConnectionStatus(false);
+            } else {
+                // Connect
+                dashboardState.apiUrl = elements.apiUrl.value.trim();
+                dashboardState.apiKey = elements.apiKey.value.trim();
+                
+                if (!dashboardState.apiUrl || !dashboardState.apiKey) {
+                    ui.updateConnectionStatus(false, 'API URL and Key are required');
+                    return;
+                }
+                
+                // Test connection
+                ui.updateConnectionStatus(false, 'Connecting...');
+                elements.connectBtn.innerHTML = '<div class="loader mr-2"></div> Connecting...';
+                elements.connectBtn.disabled = true;
+                
+                try {
                     const connected = await api.testConnection();
+                    
+                    elements.connectBtn.disabled = false;
                     
                     if (connected) {
                         ui.updateConnectionStatus(true);
@@ -459,117 +946,335 @@
                         // Refresh data immediately
                         await ui.refreshConversationList();
                         
-                        // Set up auto-refresh
+                        // Set up auto-refresh every 10 seconds
                         dashboardState.refreshInterval = setInterval(() => {
                             ui.refreshConversationList();
-                        }, 5000);
+                        }, 10000);
+                        
+                        // Save credentials to localStorage
+                        localStorage.setItem('dashboardApiUrl', dashboardState.apiUrl);
+                        localStorage.setItem('dashboardApiKey', dashboardState.apiKey);
                     } else {
                         ui.updateConnectionStatus(false, 'Connection failed');
                     }
-                }
-            });
-            
-            // Take over button
-            elements.takeOverBtn.addEventListener('click', async () => {
-                if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-                
-                try {
-                    await api.updateStatus(dashboardState.selectedUserId, 'human-handled');
-                    await ui.refreshConversationDetail();
-                    await ui.refreshConversationList();
                 } catch (error) {
-                    console.error('Failed to take over conversation:', error);
+                    elements.connectBtn.disabled = false;
+                    ui.updateConnectionStatus(false, `Connection error: ${error.message}`);
                 }
-            });
-            
-            // Hand back button
-            elements.handBackBtn.addEventListener('click', async () => {
-                if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-                
-                try {
-                    await api.updateStatus(dashboardState.selectedUserId, 'ai-handled');
-                    await ui.refreshConversationDetail();
-                    await ui.refreshConversationList();
-                } catch (error) {
-                    console.error('Failed to hand back conversation:', error);
-                }
-            });
-            
-            // Send message form
-            elements.sendMessageForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-                
-                if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-                
-                const message = elements.messageInput.value.trim();
-                if (!message) return;
-                
-                try {
-                    await api.sendMessage(dashboardState.selectedUserId, message);
-                    elements.messageInput.value = '';
-                    await ui.refreshConversationDetail();
-                } catch (error) {
-                    console.error('Failed to send message:', error);
-                }
-            });
-        }
-
-        // Initialize the dashboard
-        function init() {
-            setupEventListeners();
-            
-            // Try to load saved API URL and key from localStorage
-            const savedApiUrl = localStorage.getItem('dashboardApiUrl');
-            const savedApiKey = localStorage.getItem('dashboardApiKey');
-            
-            if (savedApiUrl && savedApiKey) {
-                elements.apiUrl.value = savedApiUrl;
-                elements.apiKey.value = savedApiKey;
             }
+        });
+        
+        // Test Connection button
+        elements.testConnectionBtn.addEventListener('click', async () => {
+            const tempApiUrl = elements.apiUrl.value.trim();
+            const tempApiKey = elements.apiKey.value.trim();
+            
+            if (!tempApiUrl || !tempApiKey) {
+                logToConsole('API URL and Key are required for testing', true);
+                return;
+            }
+            
+            const originalState = {
+                apiUrl: dashboardState.apiUrl,
+                apiKey: dashboardState.apiKey
+            };
+            
+            // Temporarily set the api credentials for testing
+            dashboardState.apiUrl = tempApiUrl;
+            dashboardState.apiKey = tempApiKey;
+            
+            logToConsole(`Testing connection to ${tempApiUrl}...`);
+            elements.testConnectionBtn.innerHTML = '<div class="loader mr-1"></div> Testing';
+            elements.testConnectionBtn.disabled = true;
+            
+            try {
+                await api.testConnection();
+                elements.testConnectionBtn.innerHTML = '<i class="fas fa-vial mr-1"></i> Test';
+                elements.testConnectionBtn.disabled = false;
+                logToConsole('Connection test completed');
+            } catch (error) {
+                elements.testConnectionBtn.innerHTML = '<i class="fas fa-vial mr-1"></i> Test';
+                elements.testConnectionBtn.disabled = false;
+            }
+            
+            // Restore original state if not connected
+            if (!dashboardState.connected) {
+                dashboardState.apiUrl = originalState.apiUrl;
+                dashboardState.apiKey = originalState.apiKey;
+            }
+        });
+        
+        // Create Test Data button
+        elements.createTestDataBtn.addEventListener('click', async () => {
+            if (!dashboardState.connected) {
+                logToConsole('Must be connected to create test data', true);
+                return;
+            }
+            
+            elements.createTestDataBtn.innerHTML = '<div class="loader mr-1"></div> Creating';
+            elements.createTestDataBtn.disabled = true;
+            
+            try {
+                const result = await api.createTestData();
+                logToConsole(`Test data created successfully: ${JSON.stringify(result)}`);
+                await ui.refreshConversationList();
+                elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
+                elements.createTestDataBtn.disabled = false;
+            } catch (error) {
+                logToConsole(`Failed to create test data: ${error.message}`, true);
+                elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
+                elements.createTestDataBtn.disabled = false;
+            }
+        });
+        
+        // Refresh list button
+        elements.refreshListBtn.addEventListener('click', async () => {
+            if (!dashboardState.connected) return;
+            await ui.refreshConversationList();
+        });
+        
+        // Take over button
+        elements.takeOverBtn.addEventListener('click', async () => {
+            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
+            
+            logToConsole(`Taking over conversation: ${dashboardState.selectedUserId}`);
+            elements.takeOverBtn.disabled = true;
+            elements.takeOverBtn.innerHTML = '<div class="loader mr-1"></div> Taking over';
+            
+            try {
+                // Make sure the API request is processed properly
+                const result = await api.updateStatus(dashboardState.selectedUserId, 'human-handled');
+                logToConsole(`Take over result: ${JSON.stringify(result)}`);
+                
+                // Wait a moment to ensure the status change is processed
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Refresh UI elements
+                await ui.refreshConversationDetail();
+                await ui.refreshConversationList();
+                
+                elements.takeOverBtn.disabled = false;
+                elements.takeOverBtn.innerHTML = '<i class="fas fa-headset mr-1"></i> Take Over';
+                
+                // Force UI update to show the correct buttons
+                if (result.status === 'human-handled' && result.handledBy === dashboardState.agentId) {
+                    elements.takeOverBtn.classList.add('hidden');
+                    elements.handBackBtn.classList.remove('hidden');
+                    elements.messageInput.disabled = false;
+                    elements.messageInput.placeholder = 'Type a message...';
+                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = false;
+                }
+            } catch (error) {
+                logToConsole(`Failed to take over conversation: ${error.message}`, true);
+                elements.takeOverBtn.disabled = false;
+                elements.takeOverBtn.innerHTML = '<i class="fas fa-headset mr-1"></i> Take Over';
+            }
+        });
+        
+        // Hand back button
+        elements.handBackBtn.addEventListener('click', async () => {
+            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
+            
+            logToConsole(`Handing back conversation to AI: ${dashboardState.selectedUserId}`);
+            elements.handBackBtn.disabled = true;
+            elements.handBackBtn.innerHTML = '<div class="loader mr-1"></div> Handing back';
+            
+            try {
+                // Make sure the API request is processed properly
+                const result = await api.updateStatus(dashboardState.selectedUserId, 'ai-handled');
+                logToConsole(`Hand back result: ${JSON.stringify(result)}`);
+                
+                // Wait a moment to ensure the status change is processed
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Refresh UI elements
+                await ui.refreshConversationDetail();
+                await ui.refreshConversationList();
+                
+                elements.handBackBtn.disabled = false;
+                elements.handBackBtn.innerHTML = '<i class="fas fa-robot mr-1"></i> Hand Back';
+                
+                // Force UI update to show the correct buttons
+                if (result.status === 'ai-handled') {
+                    elements.takeOverBtn.classList.remove('hidden');
+                    elements.handBackBtn.classList.add('hidden');
+                    elements.messageInput.disabled = true;
+                    elements.messageInput.placeholder = 'Take over to send messages';
+                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
+                }
+            } catch (error) {
+                logToConsole(`Failed to hand back conversation: ${error.message}`, true);
+                elements.handBackBtn.disabled = false;
+                elements.handBackBtn.innerHTML = '<i class="fas fa-robot mr-1"></i> Hand Back';
+            }
+        });
+
+        // Refresh conversation button
+        elements.refreshConversationBtn.addEventListener('click', async () => {
+            if (!dashboardState.selectedUserId) return;
+            
+            logToConsole(`Manually refreshing conversation: ${dashboardState.selectedUserId}`);
+            elements.refreshConversationBtn.disabled = true;
+            
+            try {
+                await ui.refreshConversationDetail();
+                elements.refreshConversationBtn.disabled = false;
+            } catch (error) {
+                logToConsole(`Failed to refresh conversation: ${error.message}`, true);
+                elements.refreshConversationBtn.disabled = false;
+            }
+        });
+        
+        // Reset conversation button
+        elements.resetConversationBtn.addEventListener('click', async () => {
+            if (!dashboardState.selectedUserId) return;
+            
+            logToConsole(`Resetting conversation controls: ${dashboardState.selectedUserId}`);
+            elements.resetConversationBtn.disabled = true;
+            elements.resetConversationBtn.innerHTML = '<div class="loader mr-1"></div> Resetting';
+            
+            try {
+                // Force reset the conversation handling status
+                await api.request(
+                    `/api/conversation/status?userId=${encodeURIComponent(dashboardState.selectedUserId)}`,
+                    'PUT',
+                    {
+                        agentId: dashboardState.agentId,
+                        status: 'human-handled'
+                    }
+                );
+                
+                // Manually unlock the UI
+                elements.takeOverBtn.classList.add('hidden');
+                elements.handBackBtn.classList.remove('hidden');
+                elements.messageInput.disabled = false;
+                elements.messageInput.placeholder = 'Type a message...';
+                const sendButton = elements.sendMessageForm.querySelector('button[type="submit"]');
+                if (sendButton) {
+                    sendButton.disabled = false;
+                }
+                
+                // Update UI
+                await ui.refreshConversationDetail();
+                await ui.refreshConversationList();
+                
+                logToConsole('Conversation controls reset successfully');
+                elements.resetConversationBtn.disabled = false;
+                elements.resetConversationBtn.innerHTML = '<i class="fas fa-redo-alt mr-1"></i> Reset';
+            } catch (error) {
+                logToConsole(`Failed to reset conversation: ${error.message}`, true);
+                elements.resetConversationBtn.disabled = false;
+                elements.resetConversationBtn.innerHTML = '<i class="fas fa-redo-alt mr-1"></i> Reset';
+            }
+        });
+        
+        // Send message form
+        elements.sendMessageForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            
+            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
+            
+            const message = elements.messageInput.value.trim();
+            if (!message) return;
+            
+            logToConsole(`Sending message to ${dashboardState.selectedUserId}: ${message}`);
+            const submitButton = elements.sendMessageForm.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<div class="loader"></div>';
+            
+            // Show the typing indicator
+            const typingIndicator = document.querySelector('.typing-dots');
+            typingIndicator.classList.remove('hidden');
+            
+            try {
+                // Use the updated sendMessage function that handles WhatsApp sending
+                const result = await api.sendMessage(dashboardState.selectedUserId, message);
+                
+                elements.messageInput.value = '';
+                
+                // Add a slight delay before refreshing to allow the backend to process
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Hide typing indicator
+                typingIndicator.classList.add('hidden');
+                
+                await ui.refreshConversationDetail();
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                
+                // Force auto-refresh of conversation list after sending a message
+                await ui.refreshConversationList();
+            } catch (error) {
+                logToConsole(`Failed to send message: ${error.message}`, true);
+                typingIndicator.classList.add('hidden');
+                submitButton.disabled = false;
+                submitButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+            }
+        });
+
+        // Clear console button
+        elements.clearConsoleBtn.addEventListener('click', () => {
+            document.getElementById('debug-console').innerHTML = '// Console cleared\n';
+        });
+        
+        // Toggle console visibility
+        elements.toggleConsoleBtn.addEventListener('click', () => {
+            const isVisible = elements.debugContainer.classList.contains('h-48');
+            
+            if (isVisible) {
+                elements.debugContainer.classList.remove('h-48');
+                elements.debugContainer.classList.add('h-0');
+                elements.toggleConsoleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+            } else {
+                elements.debugContainer.classList.remove('h-0');
+                elements.debugContainer.classList.add('h-48');
+                elements.toggleConsoleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            }
+        });
+        
+        // Also toggle when clicking the debug header
+        elements.debugHeader.addEventListener('click', (e) => {
+            // Don't toggle when clicking the clear button
+            if (e.target.closest('#clear-console-btn')) return;
+            
+            elements.toggleConsoleBtn.click();
+        });
+        
+        // Auto resize textarea as user types
+        elements.messageInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            const newHeight = Math.min(120, this.scrollHeight); // Cap at 120px
+            this.style.height = newHeight + 'px';
+        });
+    }
+
+    // Initialize the dashboard
+    function init() {
+        logToConsole('Initializing WhatsApp dashboard...');
+        setupEventListeners();
+        
+        // Initialize the dashboard state
+        ui.updateConnectionStatus(false);
+        ui.clearConversationList();
+        
+        // Try to load saved API URL and key from localStorage
+        const savedApiUrl = localStorage.getItem('dashboardApiUrl');
+        const savedApiKey = localStorage.getItem('dashboardApiKey');
+        
+        if (savedApiUrl && savedApiKey) {
+            logToConsole('Found saved credentials in localStorage');
+            elements.apiUrl.value = savedApiUrl;
+            elements.apiKey.value = savedApiKey;
         }
 
-        // Start the dashboard
-        init();
+        logToConsole(`Dashboard initialized with agent ID: ${dashboardState.agentId}`);
+        
+        // Set initial height of textarea
+        elements.messageInput.style.height = 'auto';
+    }
+
+    // Start the dashboard when DOM is ready
+    document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
-
-                <!-- Conversation Detail Section (initially hidden) -->
-                <div id="conversation-detail" class="mt-5 bg-white shadow rounded-lg hidden">
-                    <div class="px-4 py-5 sm:p-6">
-                        <div class="flex justify-between">
-                            <h3 id="detail-title" class="text-lg leading-6 font-medium text-gray-900">Conversation with <span id="user-id"></span></h3>
-                            <div>
-                                <button id="take-over-btn" class="px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                    Take Over
-                                </button>
-                                <button id="hand-back-btn" class="ml-2 px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                    Hand Back to AI
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="mt-4 bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto">
-                            <div id="conversation-messages" class="space-y-4">
-                                <!-- Messages will be populated here -->
-                            </div>
-                        </div>
-                        
-                        <div class="mt-4">
-                            <form id="send-message-form" class="flex space-x-3">
-                                <div class="flex-grow">
-                                    <label for="message" class="sr-only">Message</label>
-                                    <textarea id="message" name="message" rows="3" 
-                                              class="shadow-sm block w-full focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm border border-gray-300 rounded-md"
-                                              placeholder="Type a message..."></textarea>
-                                </div>
-                                <div class="flex-shrink-0">
-                                    <button type="submit" 
-                                            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                                        Send
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
