@@ -1272,9 +1272,19 @@
         // Set initial height of textarea
         elements.messageInput.style.height = 'auto';
     }
+// Add this debug code at the bottom of your script section
+console.log('Testing notification system availability');
+console.log('DashboardNotificationManager available:', typeof DashboardNotificationManager !== 'undefined');
+console.log('initializeNotifications available:', typeof initializeNotifications !== 'undefined');
+console.log('Navbar elements found:', document.querySelectorAll('nav .flex').length);
+console.log('Items-center elements found:', document.querySelectorAll('.items-center').length);
+console.log('space-x-4 elements found:', document.querySelectorAll('.space-x-4').length);
 
     // Start the dashboard when DOM is ready
     document.addEventListener('DOMContentLoaded', init);
     </script>
+
+<script src="clean-notification-system.js"></script>
+
 </body>
 </html>
