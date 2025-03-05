@@ -39,11 +39,6 @@
             transition: all 0.3s ease;
         }
 
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-        }
-
         .glow {
             box-shadow: 0 0 15px rgba(147, 112, 219, 0.5);
         }
@@ -176,6 +171,53 @@
             background-color: rgba(147, 112, 219, 0.1);
             border-left: 3px solid #9370DB;
         }
+        
+        /* Notification system styles */
+        .notification-badge {
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            background-color: #f56565;
+            color: white;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            height: 16px;
+            width: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-bell.has-unread::after {
+          content: '';
+          position: absolute;
+          top: 0px;
+          right: 0px;
+          width: 8px;
+          height: 8px;
+          background-color: #f56565;
+          border-radius: 50%;
+          animation: pulse 2s infinite;
+        }
+        
+        .notification-panel {
+          max-height: 80vh;
+          overflow-y: auto;
+          background-color: rgba(25, 29, 43, 0.95);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+          z-index: 10000;
+        }
+        
+        .notification-item {
+          transition: background-color 0.2s ease;
+        }
+        
+        .notification-item:hover {
+          background-color: rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body>
@@ -191,10 +233,21 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
+                        <!-- Notification Bell (hidden until connected) -->
+                        <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden" style="position: relative;">
+                            <i class="fas fa-bell"></i>
+                            <div id="notification-badge" class="notification-badge hidden">
+                                <span>0</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Connection Status Indicator -->
                         <div id="status-indicator" class="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-white">
                             <span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span>
                             Disconnected
                         </div>
+                        
+                        <!-- Agent ID Display -->
                         <div class="text-white text-sm">
                             <span class="opacity-70">Agent ID:</span> 
                             <span id="agent-id-display" class="font-mono ml-1"></span>
@@ -231,13 +284,13 @@
                         <button id="create-test-data-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
                             <i class="fas fa-flask mr-1"></i> Test Data
                         </button>
-                        <div id="connection-status" class="text-sm text-center text-gray-400 ml-2 md:hidden">
-                            Not connected
-                        </div>
+                        <button id="test-notification-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
+                            <i class="fas fa-bell mr-1"></i> Test Notification
+                        </button>
                     </div>
                 </div>
-                <div class="mt-2 text-sm text-center text-gray-400 hidden md:block">
-                    <span id="connection-status-desktop">Not connected</span>
+                <div class="mt-2 text-sm text-center text-gray-400">
+                    <span id="connection-status">Not connected</span>
                 </div>
             </div>
 
@@ -253,7 +306,7 @@
                             </button>
                         </div>
                         <div id="conversation-list" class="max-h-96 overflow-y-auto">
-                            <div class="text-gray-500 text-center p-6">
+                            <div class="text-gray-500 text-center p-20">
                                 <i class="fas fa-plug mb-2 text-2xl opacity-30"></i>
                                 <p>Connect to view conversations...</p>
                             </div>
@@ -356,935 +409,109 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Notification Panel (initially hidden) -->
+        <div id="notification-panel" class="notification-panel card fixed right-4 top-20 w-80 z-50 shadow-2xl hidden">
+            <div class="notification-header p-3 border-b border-gray-800 flex justify-between items-center">
+                <h3 class="brand-gradient-text text-lg font-semibold">Notifications</h3>
+                <div class="flex space-x-2">
+                    <button id="notifications-sound-toggle" class="btn-secondary h-8 w-8 rounded-md flex items-center justify-center text-sm">
+                        <i class="fas fa-volume-up"></i>
+                    </button>
+                    <button id="notifications-clear" class="btn-secondary h-8 w-8 rounded-md flex items-center justify-center text-sm">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <button id="notifications-close" class="btn-secondary h-8 w-8 rounded-md flex items-center justify-center text-sm">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="notifications-list" class="max-h-96 overflow-y-auto">
+                <div class="text-gray-500 text-center p-6">
+                    <i class="fas fa-bell mb-2 text-2xl opacity-30"></i>
+                    <p>No notifications</p>
+                </div>
+            </div>
+        </div>
     </div>
 
+    <!-- Core Scripts -->
     <script>
-    // Dashboard state
-    let dashboardState = {
-        apiUrl: null,
-        apiKey: null,
-        connected: false,
-        conversations: [],
-        selectedUserId: null,
-        agentId: 'dashboard-' + Date.now().toString().slice(-6), // Create a unique agent ID
-        refreshInterval: null
-    };
-
-    // Update agent ID display
-    document.getElementById('agent-id-display').textContent = dashboardState.agentId;
-
-    // Utility Functions
-    function logToConsole(message, isError = false) {
-        const console = document.getElementById('debug-console');
-        const timestamp = new Date().toLocaleTimeString();
-        const formattedMessage = `[${timestamp}] ${message}`;
-        
-        console.innerHTML += isError 
-            ? `<span class="text-red-400">${formattedMessage}</span>\n` 
-            : `${formattedMessage}\n`;
-        
-        // Auto scroll to bottom
-        console.scrollTop = console.scrollHeight;
-    }
-
-    // DOM Elements
-    const elements = {
-        apiUrl: document.getElementById('api-url'),
-        apiKey: document.getElementById('api-key'),
-        connectBtn: document.getElementById('connect-btn'),
-        testConnectionBtn: document.getElementById('test-connection-btn'),
-        createTestDataBtn: document.getElementById('create-test-data-btn'),
-        connectionStatus: document.getElementById('connection-status'),
-        connectionStatusDesktop: document.getElementById('connection-status-desktop'),
-        statusIndicator: document.getElementById('status-indicator'),
-        conversationList: document.getElementById('conversation-list'),
-        totalConversations: document.getElementById('total-conversations'),
-        humanHandled: document.getElementById('human-handled'),
-        aiHandled: document.getElementById('ai-handled'),
-        conversationDetail: document.getElementById('conversation-detail'),
-        userId: document.getElementById('user-id'),
-        conversationMessages: document.getElementById('conversation-messages'),
-        takeOverBtn: document.getElementById('take-over-btn'),
-        handBackBtn: document.getElementById('hand-back-btn'),
-        refreshConversationBtn: document.getElementById('refresh-conversation-btn'),
-        resetConversationBtn: document.getElementById('reset-conversation-btn'),
-        sendMessageForm: document.getElementById('send-message-form'),
-        messageInput: document.getElementById('message'),
-        clearConsoleBtn: document.getElementById('clear-console-btn'),
-        toggleConsoleBtn: document.getElementById('toggle-console-btn'),
-        debugContainer: document.getElementById('debug-container'),
-        debugHeader: document.getElementById('debug-header'),
-        refreshListBtn: document.getElementById('refresh-list-btn')
-    };
-
-    // API Functions
-    const api = {
-        // Make an API request with auth headers
-        async request(endpoint, method = 'GET', body = null) {
-            try {
-                logToConsole(`Making ${method} request to ${dashboardState.apiUrl}${endpoint}`);
-                const url = `${dashboardState.apiUrl}${endpoint}`;
-                const options = {
-                    method,
-                    headers: {
-                        'Authorization': `Bearer ${dashboardState.apiKey}`,
-                        'Content-Type': 'application/json'
-                    }
-                };
-                
-                if (body) {
-                    options.body = JSON.stringify(body);
-                }
-                
-                const response = await fetch(url, options);
-                logToConsole(`Response status: ${response.status}`);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    logToConsole(`API error response: ${errorText}`, true);
-                    throw new Error(`API error: ${response.status} - ${errorText}`);
-                }
-                
-                return await response.json();
-            } catch (error) {
-                logToConsole(`API request failed: ${error.message}`, true);
-                throw error;
+        // Global state and utility functions
+        window.dashboardState = {
+            apiUrl: null,
+            apiKey: null,
+            connected: false,
+            conversations: [],
+            selectedUserId: null,
+            agentId: 'dashboard-' + Date.now().toString().slice(-6), // Create a unique agent ID
+            refreshInterval: null,
+            notificationSettings: {
+                soundEnabled: true
             }
-        },
+        };
         
-        // Get all conversations
-        async getConversations() {
-            return api.request('/api/conversations');
-        },
-        
-        // Get a specific conversation
-        async getConversation(userId) {
-            return api.request(`/api/conversation?userId=${encodeURIComponent(userId)}`);
-        },
-        
-        // Update conversation status (take over or hand back)
-        async updateStatus(userId, status) {
-            logToConsole(`Updating conversation status for ${userId} to ${status} with agent ${dashboardState.agentId}`);
+        // Utility logging function
+        window.logToConsole = function(message, isError = false) {
+            const console = document.getElementById('debug-console');
+            if (!console) return;
             
-            try {
-                const result = await api.request(
-                    `/api/conversation/status?userId=${encodeURIComponent(userId)}`,
-                    'PUT',
-                    {
-                        agentId: dashboardState.agentId,
-                        status: status
-                    }
-                );
-                
-                logToConsole(`Status update result: ${JSON.stringify(result)}`);
-                return result;
-            } catch (error) {
-                logToConsole(`Status update error: ${error.message}`, true);
-                throw error;
-            }
-        },
-        
-        // Send a message as an agent
-        async sendMessage(userId, message) {
-            logToConsole(`Sending message to ${userId}: "${message}" from agent ${dashboardState.agentId}`);
+            const timestamp = new Date().toLocaleTimeString();
+            const formattedMessage = `[${timestamp}] ${message}`;
             
-            try {
-                // First make sure we're still handling this conversation
-                const conversationData = await this.getConversation(userId);
-                const metadata = conversationData.metadata || {};
-                
-                if (metadata.status !== 'human-handled' || metadata.handledBy !== dashboardState.agentId) {
-                    logToConsole(`Warning: This agent (${dashboardState.agentId}) is not currently handling this conversation. Status: ${metadata.status}, Handler: ${metadata.handledBy}`, true);
-                    
-                    // Try to take over the conversation again
-                    logToConsole(`Attempting to take over the conversation again...`);
-                    await this.updateStatus(userId, 'human-handled');
-                }
-                
-                // Skip WhatsApp sending for test users
-                const isTestUser = userId.startsWith('test_');
-                
-                if (!isTestUser) {
-                    // STEP 1: Send message directly to WhatsApp
-                    logToConsole(`Sending message to WhatsApp for user: ${userId}`);
-                    try {
-                        const whatsappResult = await api.request(
-                            `/api/whatsapp/send`,
-                            'POST',
-                            {
-                                userId: userId,
-                                message: message
-                            }
-                        );
-                        logToConsole(`WhatsApp message sent: ${JSON.stringify(whatsappResult)}`);
-                    } catch (whatsappError) {
-                        logToConsole(`Failed to send WhatsApp message: ${whatsappError.message}`, true);
-                        // Continue anyway to store in chat history
-                    }
-                } else {
-                    logToConsole(`Skipping WhatsApp send for test user: ${userId}`);
-                }
-                
-                // STEP 2: Store the message in the conversation history (as before)
-                const result = await api.request(
-                    `/api/conversation/message?userId=${encodeURIComponent(userId)}`,
-                    'POST',
-                    {
-                        agentId: dashboardState.agentId,
-                        message: message
-                    }
-                );
-                
-                logToConsole(`Message stored in history: ${JSON.stringify(result)}`);
-                return result;
-            } catch (error) {
-                logToConsole(`Send message error: ${error.message}`, true);
-                throw error;
-            }
-        },
-        
-        // Create test data
-        async createTestData() {
-            const testUserId = `test_${Date.now()}`;
-            logToConsole(`Creating test data for user ID: ${testUserId}`);
+            console.innerHTML += isError 
+                ? `<span class="text-red-400">${formattedMessage}</span>\n` 
+                : `${formattedMessage}\n`;
             
-            return api.request(
-                '/api/test/create-data',
-                'POST',
-                {
-                    userId: testUserId
-                }
-            );
-        },
+            // Auto scroll to bottom
+            console.scrollTop = console.scrollHeight;
+        };
         
-        // Test connection to API
-        async testConnection() {
-            try {
-                logToConsole('Testing connection to API...');
-                const result = await api.getConversations();
-                logToConsole('Connection test successful. API response:');
-                logToConsole(JSON.stringify(result, null, 2));
-                return true;
-            } catch (error) {
-                logToConsole(`Connection test failed: ${error.message}`, true);
-                return false;
-            }
-        }
-    };
-
-    // UI Functions
-    const ui = {
-        // Update the connection status indicator
-        updateConnectionStatus(connected, message = '') {
-            logToConsole(`Updating connection status: connected=${connected}, message=${message || 'N/A'}`);
-            dashboardState.connected = connected;
-            elements.connectionStatus.textContent = message || (connected ? 'Connected' : 'Not connected');
-            elements.connectionStatusDesktop.textContent = message || (connected ? 'Connected' : 'Not connected');
-            
-            if (connected) {
-                elements.statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-green-500 status-pulse"></span> Connected';
-                elements.statusIndicator.classList.remove('bg-red-900');
-                elements.statusIndicator.classList.add('bg-green-900');
-                elements.connectBtn.innerHTML = '<i class="fas fa-plug-circle-xmark mr-2"></i> Disconnect';
-            } else {
-                elements.statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span> Disconnected';
-                elements.statusIndicator.classList.remove('bg-green-900');
-                elements.statusIndicator.classList.add('bg-red-900');
-                elements.connectBtn.innerHTML = '<i class="fas fa-plug mr-2"></i> Connect';
-                
-                // Clear conversation data when disconnected
-                ui.clearConversationList();
-                ui.hideConversationDetail();
-                
-                // Cancel auto-refresh
-                if (dashboardState.refreshInterval) {
-                    clearInterval(dashboardState.refreshInterval);
-                    dashboardState.refreshInterval = null;
-                }
-            }
-        },
-        
-        // Refresh the conversation list
-        async refreshConversationList() {
-            try {
-                logToConsole('Refreshing conversation list...');
-                if (!dashboardState.connected) {
-                    logToConsole('Not refreshing conversations because not connected', true);
-                    return;
-                }
-                
-                // Show loading indicator
-                elements.refreshListBtn.innerHTML = '<div class="loader"></div>';
-                
-                const data = await api.getConversations();
-                logToConsole(`Received ${data.conversations ? data.conversations.length : 0} conversations`);
-                dashboardState.conversations = data.conversations || [];
-                
-                // Update stats with animation
-                animateCounter(elements.totalConversations, parseInt(elements.totalConversations.textContent), dashboardState.conversations.length);
-                animateCounter(elements.humanHandled, parseInt(elements.humanHandled.textContent), dashboardState.conversations.filter(c => c.status === 'human-handled').length);
-                animateCounter(elements.aiHandled, parseInt(elements.aiHandled.textContent), dashboardState.conversations.filter(c => c.status === 'ai-handled').length);
-                
-                // Clear and rebuild the list
-                elements.conversationList.innerHTML = '';
-                
-                if (dashboardState.conversations.length === 0) {
-                    elements.conversationList.innerHTML = `
-                        <div class="text-gray-500 text-center p-8">
-                            <i class="fas fa-comments mb-2 text-2xl opacity-30"></i>
-                            <p>No active conversations</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                // Add each conversation to the list
-                dashboardState.conversations.forEach(conversation => {
-                    const listItem = document.createElement('div');
-                    listItem.className = 'conversation-item p-4 cursor-pointer';
-                    
-                    if (dashboardState.selectedUserId === conversation.userId) {
-                        listItem.classList.add('active');
-                    }
-                    
-                    // Format timestamp
-                    const timestamp = new Date(conversation.lastTimestamp || Date.now()).toLocaleString();
-                    
-                    // Status badge
-                    let statusBadgeClass, statusText;
-                    if (conversation.status === 'human-handled') {
-                        statusBadgeClass = 'human';
-                        statusText = 'human-handled';
-                    } else {
-                        statusBadgeClass = 'ai';
-                        statusText = 'ai-handled';
-                    }
-                    
-                    listItem.innerHTML = `
-                        <div class="flex flex-col space-y-2">
-                            <div class="flex justify-between items-center">
-                                <div class="font-medium text-purple-300">${conversation.userId}</div>
-                                <span class="status-badge ${statusBadgeClass}">${statusText}</span>
-                            </div>
-                            <div class="text-sm text-gray-400 truncate">
-                                ${conversation.lastRole === 'user' ? '👤 ' : '🤖 '}
-                                ${conversation.lastMessage || '(No messages)'}
-                            </div>
-                            <div class="flex justify-between items-center text-xs text-gray-500">
-                                <span>${conversation.messageCount || 0} messages</span>
-                                <span>${formatRelativeTime(conversation.lastTimestamp)}</span>
-                            </div>
-                        </div>
-                    `;
-                    
-                    // Add click handler to show conversation detail
-                    listItem.addEventListener('click', () => {
-                        ui.showConversationDetail(conversation.userId);
-                        
-                        // Highlight selected conversation
-                        document.querySelectorAll('.conversation-item').forEach(item => {
-                            item.classList.remove('active');
-                        });
-                        listItem.classList.add('active');
-                    });
-                    
-                    elements.conversationList.appendChild(listItem);
-                });
-                
-                // If we have a selected conversation, refresh it
-                if (dashboardState.selectedUserId) {
-                    ui.refreshConversationDetail();
-                }
-                
-                // Restore the refresh button
-                elements.refreshListBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-                
-            } catch (error) {
-                logToConsole(`Failed to refresh conversations: ${error.message}`, true);
-                elements.refreshListBtn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-            }
-        },
-        
-        // Clear the conversation list
-        clearConversationList() {
-            elements.conversationList.innerHTML = `
-                <div class="text-gray-500 text-center p-8">
-                    <i class="fas fa-plug mb-2 text-2xl opacity-30"></i>
-                    <p>Connect to view conversations...</p>
-                </div>
-            `;
-            elements.totalConversations.textContent = '0';
-            elements.humanHandled.textContent = '0';
-            elements.aiHandled.textContent = '0';
-        },
-        
-        // Show conversation detail
-        async showConversationDetail(userId) {
-            try {
-                logToConsole(`Loading conversation details for user: ${userId}`);
-                dashboardState.selectedUserId = userId;
-                elements.userId.textContent = userId;
-                elements.conversationDetail.classList.remove('hidden');
-                
-                await ui.refreshConversationDetail();
-            } catch (error) {
-                logToConsole(`Failed to show conversation: ${error.message}`, true);
-            }
-        },
-        
-        // Hide conversation detail
-        hideConversationDetail() {
-            dashboardState.selectedUserId = null;
-            elements.conversationDetail.classList.add('hidden');
-            elements.conversationMessages.innerHTML = '';
-        },
-        
-        // Refresh the conversation detail view
-        async refreshConversationDetail() {
-            if (!dashboardState.selectedUserId) return;
-            
-            try {
-                logToConsole(`Refreshing conversation detail for user: ${dashboardState.selectedUserId}`);
-                
-                // Show loading indicator
-                elements.refreshConversationBtn.innerHTML = '<div class="loader mr-1"></div> Refreshing';
-                
-                const data = await api.getConversation(dashboardState.selectedUserId);
-                
-                // Log metadata to help with debugging
-                logToConsole(`Conversation metadata: ${JSON.stringify(data.metadata || {})}`);
-                
-                // Update UI based on conversation status
-                const isHumanHandled = data.metadata && data.metadata.status === 'human-handled';
-                const isHandledByThisAgent = isHumanHandled && data.metadata.handledBy === dashboardState.agentId;
-                
-                logToConsole(`Conversation status: ${isHumanHandled ? 'human-handled' : 'ai-handled'}, Handler: ${data.metadata?.handledBy || 'none'}, This agent: ${dashboardState.agentId}`);
-                
-                // Display current status in the UI
-                const statusDisplay = document.getElementById('conversation-status');
-                if (isHandledByThisAgent) {
-                    statusDisplay.textContent = 'You are handling this';
-                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-green-800 text-white';
-                } else if (isHumanHandled) {
-                    statusDisplay.textContent = `Agent: ${data.metadata.handledBy || 'unknown'}`;
-                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-purple-800 text-white';
-                } else {
-                    statusDisplay.textContent = 'AI is handling';
-                    statusDisplay.className = 'text-xs px-2 py-0.5 rounded-full bg-blue-800 text-white';
-                }
-                
-                // Update buttons and input field state
-                if (isHandledByThisAgent) {
-                    // This agent is handling the conversation
-                    logToConsole(`This agent is handling the conversation`);
-                    elements.takeOverBtn.classList.add('hidden');
-                    elements.handBackBtn.classList.remove('hidden');
-                    elements.messageInput.disabled = false;
-                    elements.messageInput.placeholder = 'Type a message...';
-                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = false;
-                } else if (isHumanHandled) {
-                    // Another agent is handling it
-                    logToConsole(`Another agent (${data.metadata.handledBy}) is handling the conversation`);
-                    elements.takeOverBtn.classList.add('hidden');
-                    elements.handBackBtn.classList.add('hidden');
-                    elements.messageInput.disabled = true;
-                    elements.messageInput.placeholder = `Being handled by ${data.metadata.handledBy || 'another agent'}`;
-                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
-                } else {
-                    // AI is handling it
-                    logToConsole(`AI is handling the conversation`);
-                    elements.takeOverBtn.classList.remove('hidden');
-                    elements.handBackBtn.classList.add('hidden');
-                    elements.messageInput.disabled = true;
-                    elements.messageInput.placeholder = 'Take over to send messages';
-                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
-                }
-                
-                // Clear and rebuild the message list
-                elements.conversationMessages.innerHTML = '';
-                
-                // Add each message
-                if (data.messages && Array.isArray(data.messages)) {
-                    data.messages.forEach(message => {
-                        const messageDiv = document.createElement('div');
-                        const isUser = message.role === 'user';
-                        
-                        messageDiv.className = isUser
-                            ? 'flex items-end justify-end'
-                            : 'flex items-start';
-                            
-                        const messageBubbleClass = isUser
-                            ? 'user-message rounded-l-lg rounded-br-lg ml-12'
-                            : 'agent-message rounded-r-lg rounded-bl-lg mr-12';
-                            
-                        const timestamp = message.timestamp 
-                            ? new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-                            : '';
-                        
-                        messageDiv.innerHTML = `
-                            <div class="${isUser ? 'order-2' : 'order-1'} flex-shrink-0 h-8 w-8 rounded-full ${isUser ? 'bg-purple-800' : 'bg-gray-700'} flex items-center justify-center mr-2">
-                                <i class="fas fa-${isUser ? 'user' : 'robot'} text-xs text-white"></i>
-                            </div>
-                            <div class="flex flex-col space-y-1 text-sm max-w-xs mx-2 ${isUser ? 'order-1 items-end' : 'order-2 items-start'}">
-                                <div>
-                                    <span class="px-4 py-2 inline-block ${messageBubbleClass}">
-                                        ${message.content}
-                                    </span>
-                                </div>
-                                <div class="text-xs text-gray-500 flex ${isUser ? 'justify-end' : 'justify-start'} w-full px-1">
-                                    ${timestamp}
-                                    ${message.sentBy ? `<span class="ml-1 opacity-70">· ${message.sentBy}</span>` : ''}
-                                </div>
-                            </div>
-                        `;
-                        
-                        elements.conversationMessages.appendChild(messageDiv);
-                    });
-                } else {
-                    logToConsole('No messages found or invalid message format', true);
-                    elements.conversationMessages.innerHTML = `
-                        <div class="text-center text-gray-500 py-8">
-                            <i class="far fa-comment-dots text-4xl mb-2 opacity-30"></i>
-                            <p>No messages found</p>
-                        </div>
-                    `;
-                }
-                
-                // Scroll to bottom
-                elements.conversationMessages.scrollTop = elements.conversationMessages.scrollHeight;
-                
-                // Restore the refresh button
-                elements.refreshConversationBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
-                
-            } catch (error) {
-                logToConsole(`Failed to refresh conversation detail: ${error.message}`, true);
-                elements.refreshConversationBtn.innerHTML = '<i class="fas fa-sync-alt mr-1"></i> Refresh';
-            }
-        }
-    };
-
-    // Utility functions
-    function formatRelativeTime(timestamp) {
-        if (!timestamp) return 'N/A';
-        
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - date;
-        const diffSecs = Math.floor(diffMs / 1000);
-        const diffMins = Math.floor(diffSecs / 60);
-        const diffHours = Math.floor(diffMins / 60);
-        const diffDays = Math.floor(diffHours / 24);
-        
-        if (diffSecs < 60) return 'just now';
-        if (diffMins < 60) return `${diffMins}m ago`;
-        if (diffHours < 24) return `${diffHours}h ago`;
-        if (diffDays < 7) return `${diffDays}d ago`;
-        
-        return date.toLocaleDateString();
-    }
-    
-    function animateCounter(element, start, end) {
-        if (start === end) return;
-        
-        const duration = 1000; // ms
-        const startTime = performance.now();
-        
-        function updateCounter(timestamp) {
-            const elapsed = timestamp - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            
-            // Easing function (ease-out)
-            const easeProgress = 1 - Math.pow(1 - progress, 3);
-            
-            const current = Math.floor(start + (end - start) * easeProgress);
-            element.textContent = current;
-            
-            if (progress < 1) {
-                requestAnimationFrame(updateCounter);
-            } else {
-                element.textContent = end;
-            }
-        }
-        
-        requestAnimationFrame(updateCounter);
-    }
-
-    // Event Handler Setup
-    function setupEventListeners() {
-        // Connect/Disconnect button
-        elements.connectBtn.addEventListener('click', async () => {
-            logToConsole(`Connect button clicked. Current state: ${dashboardState.connected ? 'connected' : 'disconnected'}`);
-            
-            if (dashboardState.connected) {
-                // Disconnect
-                clearInterval(dashboardState.refreshInterval);
-                dashboardState.refreshInterval = null;
-                ui.updateConnectionStatus(false);
-            } else {
-                // Connect
-                dashboardState.apiUrl = elements.apiUrl.value.trim();
-                dashboardState.apiKey = elements.apiKey.value.trim();
-                
-                if (!dashboardState.apiUrl || !dashboardState.apiKey) {
-                    ui.updateConnectionStatus(false, 'API URL and Key are required');
-                    return;
-                }
-                
-                // Test connection
-                ui.updateConnectionStatus(false, 'Connecting...');
-                elements.connectBtn.innerHTML = '<div class="loader mr-2"></div> Connecting...';
-                elements.connectBtn.disabled = true;
-                
-                try {
-                    const connected = await api.testConnection();
-                    
-                    elements.connectBtn.disabled = false;
-                    
-                    if (connected) {
-                        ui.updateConnectionStatus(true);
-                        
-                        // Refresh data immediately
-                        await ui.refreshConversationList();
-                        
-                        // Set up auto-refresh every 10 seconds
-                        dashboardState.refreshInterval = setInterval(() => {
-                            ui.refreshConversationList();
-                        }, 10000);
-                        
-                        // Save credentials to localStorage
-                        localStorage.setItem('dashboardApiUrl', dashboardState.apiUrl);
-                        localStorage.setItem('dashboardApiKey', dashboardState.apiKey);
-                    } else {
-                        ui.updateConnectionStatus(false, 'Connection failed');
-                    }
-                } catch (error) {
-                    elements.connectBtn.disabled = false;
-                    ui.updateConnectionStatus(false, `Connection error: ${error.message}`);
-                }
-            }
+        // Setup global error handler
+        window.addEventListener('error', function(event) {
+            window.logToConsole(`Error: ${event.message} at ${event.filename}:${event.lineno}`, true);
         });
         
-        // Test Connection button
-        elements.testConnectionBtn.addEventListener('click', async () => {
-            const tempApiUrl = elements.apiUrl.value.trim();
-            const tempApiKey = elements.apiKey.value.trim();
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update agent ID display
+            document.getElementById('agent-id-display').textContent = dashboardState.agentId;
+            window.logToConsole('Initializing WhatsApp dashboard...');
             
-            if (!tempApiUrl || !tempApiKey) {
-                logToConsole('API URL and Key are required for testing', true);
-                return;
+            // Load saved credentials
+            const savedApiUrl = localStorage.getItem('dashboardApiUrl');
+            const savedApiKey = localStorage.getItem('dashboardApiKey');
+            
+            if (savedApiUrl && savedApiKey) {
+                window.logToConsole('Found saved credentials in localStorage');
+                document.getElementById('api-url').value = savedApiUrl;
+                document.getElementById('api-key').value = savedApiKey;
             }
             
-            const originalState = {
-                apiUrl: dashboardState.apiUrl,
-                apiKey: dashboardState.apiKey
-            };
-            
-            // Temporarily set the api credentials for testing
-            dashboardState.apiUrl = tempApiUrl;
-            dashboardState.apiKey = tempApiKey;
-            
-            logToConsole(`Testing connection to ${tempApiUrl}...`);
-            elements.testConnectionBtn.innerHTML = '<div class="loader mr-1"></div> Testing';
-            elements.testConnectionBtn.disabled = true;
-            
-            try {
-                await api.testConnection();
-                elements.testConnectionBtn.innerHTML = '<i class="fas fa-vial mr-1"></i> Test';
-                elements.testConnectionBtn.disabled = false;
-                logToConsole('Connection test completed');
-            } catch (error) {
-                elements.testConnectionBtn.innerHTML = '<i class="fas fa-vial mr-1"></i> Test';
-                elements.testConnectionBtn.disabled = false;
-            }
-            
-            // Restore original state if not connected
-            if (!dashboardState.connected) {
-                dashboardState.apiUrl = originalState.apiUrl;
-                dashboardState.apiKey = originalState.apiKey;
-            }
+            window.logToConsole(`Dashboard initialized with agent ID: ${dashboardState.agentId}`);
         });
-        
-        // Create Test Data button
-        elements.createTestDataBtn.addEventListener('click', async () => {
-            if (!dashboardState.connected) {
-                logToConsole('Must be connected to create test data', true);
-                return;
-            }
-            
-            elements.createTestDataBtn.innerHTML = '<div class="loader mr-1"></div> Creating';
-            elements.createTestDataBtn.disabled = true;
-            
-            try {
-                const result = await api.createTestData();
-                logToConsole(`Test data created successfully: ${JSON.stringify(result)}`);
-                await ui.refreshConversationList();
-                elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
-                elements.createTestDataBtn.disabled = false;
-            } catch (error) {
-                logToConsole(`Failed to create test data: ${error.message}`, true);
-                elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
-                elements.createTestDataBtn.disabled = false;
-            }
-        });
-        
-        // Refresh list button
-        elements.refreshListBtn.addEventListener('click', async () => {
-            if (!dashboardState.connected) return;
-            await ui.refreshConversationList();
-        });
-        
-        // Take over button
-        elements.takeOverBtn.addEventListener('click', async () => {
-            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-            
-            logToConsole(`Taking over conversation: ${dashboardState.selectedUserId}`);
-            elements.takeOverBtn.disabled = true;
-            elements.takeOverBtn.innerHTML = '<div class="loader mr-1"></div> Taking over';
-            
-            try {
-                // Make sure the API request is processed properly
-                const result = await api.updateStatus(dashboardState.selectedUserId, 'human-handled');
-                logToConsole(`Take over result: ${JSON.stringify(result)}`);
-                
-                // Wait a moment to ensure the status change is processed
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Refresh UI elements
-                await ui.refreshConversationDetail();
-                await ui.refreshConversationList();
-                
-                elements.takeOverBtn.disabled = false;
-                elements.takeOverBtn.innerHTML = '<i class="fas fa-headset mr-1"></i> Take Over';
-                
-                // Force UI update to show the correct buttons
-                if (result.status === 'human-handled' && result.handledBy === dashboardState.agentId) {
-                    elements.takeOverBtn.classList.add('hidden');
-                    elements.handBackBtn.classList.remove('hidden');
-                    elements.messageInput.disabled = false;
-                    elements.messageInput.placeholder = 'Type a message...';
-                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = false;
-                }
-            } catch (error) {
-                logToConsole(`Failed to take over conversation: ${error.message}`, true);
-                elements.takeOverBtn.disabled = false;
-                elements.takeOverBtn.innerHTML = '<i class="fas fa-headset mr-1"></i> Take Over';
-            }
-        });
-        
-        // Hand back button
-        elements.handBackBtn.addEventListener('click', async () => {
-            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-            
-            logToConsole(`Handing back conversation to AI: ${dashboardState.selectedUserId}`);
-            elements.handBackBtn.disabled = true;
-            elements.handBackBtn.innerHTML = '<div class="loader mr-1"></div> Handing back';
-            
-            try {
-                // Make sure the API request is processed properly
-                const result = await api.updateStatus(dashboardState.selectedUserId, 'ai-handled');
-                logToConsole(`Hand back result: ${JSON.stringify(result)}`);
-                
-                // Wait a moment to ensure the status change is processed
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Refresh UI elements
-                await ui.refreshConversationDetail();
-                await ui.refreshConversationList();
-                
-                elements.handBackBtn.disabled = false;
-                elements.handBackBtn.innerHTML = '<i class="fas fa-robot mr-1"></i> Hand Back';
-                
-                // Force UI update to show the correct buttons
-                if (result.status === 'ai-handled') {
-                    elements.takeOverBtn.classList.remove('hidden');
-                    elements.handBackBtn.classList.add('hidden');
-                    elements.messageInput.disabled = true;
-                    elements.messageInput.placeholder = 'Take over to send messages';
-                    elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
-                }
-            } catch (error) {
-                logToConsole(`Failed to hand back conversation: ${error.message}`, true);
-                elements.handBackBtn.disabled = false;
-                elements.handBackBtn.innerHTML = '<i class="fas fa-robot mr-1"></i> Hand Back';
-            }
-        });
-
-        // Refresh conversation button
-        elements.refreshConversationBtn.addEventListener('click', async () => {
-            if (!dashboardState.selectedUserId) return;
-            
-            logToConsole(`Manually refreshing conversation: ${dashboardState.selectedUserId}`);
-            elements.refreshConversationBtn.disabled = true;
-            
-            try {
-                await ui.refreshConversationDetail();
-                elements.refreshConversationBtn.disabled = false;
-            } catch (error) {
-                logToConsole(`Failed to refresh conversation: ${error.message}`, true);
-                elements.refreshConversationBtn.disabled = false;
-            }
-        });
-        
-        // Reset conversation button
-        elements.resetConversationBtn.addEventListener('click', async () => {
-            if (!dashboardState.selectedUserId) return;
-            
-            logToConsole(`Resetting conversation controls: ${dashboardState.selectedUserId}`);
-            elements.resetConversationBtn.disabled = true;
-            elements.resetConversationBtn.innerHTML = '<div class="loader mr-1"></div> Resetting';
-            
-            try {
-                // Force reset the conversation handling status
-                await api.request(
-                    `/api/conversation/status?userId=${encodeURIComponent(dashboardState.selectedUserId)}`,
-                    'PUT',
-                    {
-                        agentId: dashboardState.agentId,
-                        status: 'human-handled'
-                    }
-                );
-                
-                // Manually unlock the UI
-                elements.takeOverBtn.classList.add('hidden');
-                elements.handBackBtn.classList.remove('hidden');
-                elements.messageInput.disabled = false;
-                elements.messageInput.placeholder = 'Type a message...';
-                const sendButton = elements.sendMessageForm.querySelector('button[type="submit"]');
-                if (sendButton) {
-                    sendButton.disabled = false;
-                }
-                
-                // Update UI
-                await ui.refreshConversationDetail();
-                await ui.refreshConversationList();
-                
-                logToConsole('Conversation controls reset successfully');
-                elements.resetConversationBtn.disabled = false;
-                elements.resetConversationBtn.innerHTML = '<i class="fas fa-redo-alt mr-1"></i> Reset';
-            } catch (error) {
-                logToConsole(`Failed to reset conversation: ${error.message}`, true);
-                elements.resetConversationBtn.disabled = false;
-                elements.resetConversationBtn.innerHTML = '<i class="fas fa-redo-alt mr-1"></i> Reset';
-            }
-        });
-        
-        // Send message form
-        elements.sendMessageForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            
-            if (!dashboardState.selectedUserId || !dashboardState.connected) return;
-            
-            const message = elements.messageInput.value.trim();
-            if (!message) return;
-            
-            logToConsole(`Sending message to ${dashboardState.selectedUserId}: ${message}`);
-            const submitButton = elements.sendMessageForm.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.innerHTML = '<div class="loader"></div>';
-            
-            // Show the typing indicator
-            const typingIndicator = document.querySelector('.typing-dots');
-            typingIndicator.classList.remove('hidden');
-            
-            try {
-                // Use the updated sendMessage function that handles WhatsApp sending
-                const result = await api.sendMessage(dashboardState.selectedUserId, message);
-                
-                elements.messageInput.value = '';
-                
-                // Add a slight delay before refreshing to allow the backend to process
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                
-                // Hide typing indicator
-                typingIndicator.classList.add('hidden');
-                
-                await ui.refreshConversationDetail();
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
-                
-                // Force auto-refresh of conversation list after sending a message
-                await ui.refreshConversationList();
-            } catch (error) {
-                logToConsole(`Failed to send message: ${error.message}`, true);
-                typingIndicator.classList.add('hidden');
-                submitButton.disabled = false;
-                submitButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
-            }
-        });
-
-        // Clear console button
-        elements.clearConsoleBtn.addEventListener('click', () => {
-            document.getElementById('debug-console').innerHTML = '// Console cleared\n';
-        });
-        
-        // Toggle console visibility
-        elements.toggleConsoleBtn.addEventListener('click', () => {
-            const isVisible = elements.debugContainer.classList.contains('h-48');
-            
-            if (isVisible) {
-                elements.debugContainer.classList.remove('h-48');
-                elements.debugContainer.classList.add('h-0');
-                elements.toggleConsoleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
-            } else {
-                elements.debugContainer.classList.remove('h-0');
-                elements.debugContainer.classList.add('h-48');
-                elements.toggleConsoleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
-            }
-        });
-        
-        // Also toggle when clicking the debug header
-        elements.debugHeader.addEventListener('click', (e) => {
-            // Don't toggle when clicking the clear button
-            if (e.target.closest('#clear-console-btn')) return;
-            
-            elements.toggleConsoleBtn.click();
-        });
-        
-        // Auto resize textarea as user types
-        elements.messageInput.addEventListener('input', function() {
-            this.style.height = 'auto';
-            const newHeight = Math.min(120, this.scrollHeight); // Cap at 120px
-            this.style.height = newHeight + 'px';
-        });
-    }
-
-    // Initialize the dashboard
-    function init() {
-        logToConsole('Initializing WhatsApp dashboard...');
-        setupEventListeners();
-        
-        // Initialize the dashboard state
-        ui.updateConnectionStatus(false);
-        ui.clearConversationList();
-        
-        // Try to load saved API URL and key from localStorage
-        const savedApiUrl = localStorage.getItem('dashboardApiUrl');
-        const savedApiKey = localStorage.getItem('dashboardApiKey');
-        
-        if (savedApiUrl && savedApiKey) {
-            logToConsole('Found saved credentials in localStorage');
-            elements.apiUrl.value = savedApiUrl;
-            elements.apiKey.value = savedApiKey;
-        }
-
-        logToConsole(`Dashboard initialized with agent ID: ${dashboardState.agentId}`);
-        
-        // Set initial height of textarea
-        elements.messageInput.style.height = 'auto';
-    }
-// Add this debug code at the bottom of your script section
-console.log('Testing notification system availability');
-console.log('DashboardNotificationManager available:', typeof DashboardNotificationManager !== 'undefined');
-console.log('initializeNotifications available:', typeof initializeNotifications !== 'undefined');
-console.log('Navbar elements found:', document.querySelectorAll('nav .flex').length);
-console.log('Items-center elements found:', document.querySelectorAll('.items-center').length);
-console.log('space-x-4 elements found:', document.querySelectorAll('.space-x-4').length);
-
-    // Start the dashboard when DOM is ready
-    document.addEventListener('DOMContentLoaded', init);
     </script>
-
-<script src="clean-notification-system.js"></script>
-
+    
+    <!-- Load core modules -->
+    <script src="js/api.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/notification-system.js"></script>
+    
+    <!-- Register Service Worker -->
+    <script>
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(function(registration) {
+                        window.logToConsole('ServiceWorker registration successful with scope: ' + registration.scope);
+                    })
+                    .catch(function(error) {
+                        window.logToConsole('ServiceWorker registration failed: ' + error, true);
+                    });
+            });
+        }
+    </script>
 </body>
 </html>
