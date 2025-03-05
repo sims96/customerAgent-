@@ -173,31 +173,61 @@
         }
         
         /* Notification system styles */
+        /* Updated notification badge styles */
         .notification-badge {
             position: absolute;
-            top: 0px;
-            right: 0px;
+            top: -1px;
+            right: -50px;
             background-color: #f56565;
             color: white;
             border-radius: 9999px;
-            font-size: 0.75rem;
-            height: 16px;
-            width: 16px;
+            font-size: 5rem;
+            min-width: 18px;
+            height: 18px;
             display: flex;
             align-items: center;
             justify-content: center;
+            font-weight: bold;
+            padding: 0 8px;
+            box-shadow: 0 0 0 2px #c9e56c; /* Creates an outline effect */
+            z-index: 10000;
         }
-        
+
         .notification-bell.has-unread::after {
-          content: '';
-          position: absolute;
-          top: 0px;
-          right: 0px;
-          width: 8px;
-          height: 8px;
-          background-color: #f56565;
-          border-radius: 50%;
-          animation: pulse 2s infinite;
+            content: '';
+            position: absolute;
+            top: 0px;
+            right: -1px;
+            width: 0px;
+            height: 8px;
+            background-color: #f56565;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        /* Animation for the notification badge */
+        @keyframes badge-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* Apply the animation when there are unread notifications */
+        .notification-badge:not(.hidden) {
+            animation: badge-pulse 2s ease infinite;
+            right: -10px;
+        }
+
+        .notification-bell.has-unread::after {
+            content: '';
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            width: 8px;
+            height: 8px;
+            background-color: #f56565;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
         }
         
         .notification-panel {
@@ -224,7 +254,7 @@
     <div class="min-h-screen flex flex-col">
         <!-- Top navigation bar -->
         <nav class="brand-gradient shadow-lg">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 box-sizing-border-box">
                 <div class="flex justify-between h-16">
                     <div class="flex items-center">
                         <div class="flex items-center">
@@ -233,17 +263,6 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
-                        <!-- Notification Bell (hidden until connected) -->
-                        <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden" style="position: relative;">
-                            <i class="fas fa-bell"></i>
-                            <div id="notification-badge" class="notification-badge hidden">
-                                <div id="manual-notification-check" class="btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden" style="position: relative;">
-                                    <i class="fas fa-sync-alt"></i>
-                                  </div>
-                                <span>0</span>
-                            </div>
-                        </div>
-                        
                         <!-- Connection Status Indicator -->
                         <div id="status-indicator" class="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-white">
                             <span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span>
@@ -254,6 +273,14 @@
                         <div class="text-white text-sm">
                             <span class="opacity-70">Agent ID:</span> 
                             <span id="agent-id-display" class="font-mono ml-1"></span>
+                        </div>
+                        
+                        <!-- Notification Bell (hidden until connected) - Now at extreme right -->
+                        <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden relative">
+                            <i class="fas fa-bell"></i>
+                            <div id="notification-badge" class="notification-badge hidden absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-xs font-bold">
+                                <span>0</span>
+                            </div>
                         </div>
                     </div>
                 </div>
