@@ -57,9 +57,7 @@
         notificationsList: document.getElementById('notifications-list'),
         notificationsSoundToggle: document.getElementById('notifications-sound-toggle'),
         notificationsClear: document.getElementById('notifications-clear'),
-        notificationsClose: document.getElementById('notifications-close'),
-        // NEW: Add manual notification check button
-        manualNotificationCheck: document.getElementById('manual-notification-check')
+        notificationsClose: document.getElementById('notifications-close')
       };
     },
     
@@ -153,11 +151,6 @@
       // Notification sound toggle
       if (this.elements.notificationsSoundToggle) {
         this.elements.notificationsSoundToggle.addEventListener('click', this.handleNotificationsSoundToggleClick.bind(this));
-      }
-      
-      // NEW: Manual notification check button
-      if (this.elements.manualNotificationCheck) {
-        this.elements.manualNotificationCheck.addEventListener('click', this.handleManualNotificationCheck.bind(this));
       }
     },
     
@@ -271,11 +264,6 @@
         if (this.elements.notificationBell) {
           this.elements.notificationBell.classList.remove('hidden');
         }
-        
-        // NEW: Show manual notification check button when connected
-        if (this.elements.manualNotificationCheck) {
-          this.elements.manualNotificationCheck.classList.remove('hidden');
-        }
       } else {
         if (this.elements.statusIndicator) {
           this.elements.statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span> Disconnected';
@@ -291,11 +279,6 @@
         if (this.elements.notificationBell) {
           this.elements.notificationBell.classList.add('hidden');
         }
-        
-        // NEW: Hide manual notification check button when disconnected
-        if (this.elements.manualNotificationCheck) {
-          this.elements.manualNotificationCheck.classList.add('hidden');
-        }
       }
       
       // Dispatch status update event for other modules to react
@@ -305,32 +288,6 @@
           message
         }
       }));
-    },
-    
-    // NEW: Handler for manual notification check button
-    handleManualNotificationCheck() {
-      window.logToConsole('Manual notification check requested');
-      
-      // Show spinning animation for feedback
-      const icon = this.elements.manualNotificationCheck.querySelector('i');
-      if (icon) {
-        icon.classList.add('fa-spin');
-        setTimeout(() => {
-          icon.classList.remove('fa-spin');
-        }, 1000);
-      }
-      
-      // Check for notifications
-      if (window.notificationSystem && typeof window.notificationSystem.checkForNotifications === 'function') {
-        window.notificationSystem.checkForNotifications();
-      }
-      
-      // Also try service worker directly
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'CHECK_NOTIFICATIONS'
-        });
-      }
     },
     
     // Handler for test connection button click
