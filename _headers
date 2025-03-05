@@ -1,0 +1,8 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer-when-downgrade
+
+/service-worker.js
+  Content-Type: application/javascript
+  Cache-Control: max-age=0
