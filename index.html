@@ -237,6 +237,9 @@
                         <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden" style="position: relative;">
                             <i class="fas fa-bell"></i>
                             <div id="notification-badge" class="notification-badge hidden">
+                                <div id="manual-notification-check" class="btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden" style="position: relative;">
+                                    <i class="fas fa-sync-alt"></i>
+                                  </div>
                                 <span>0</span>
                             </div>
                         </div>
@@ -499,15 +502,49 @@
     
     <!-- Register Service Worker -->
     <script>
-        // Register service worker
+        // Register service worker with more error details
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', function() {
                 navigator.serviceWorker.register('./service-worker.js')
                     .then(function(registration) {
                         window.logToConsole('ServiceWorker registration successful with scope: ' + registration.scope);
+                        
+                        // Check service worker state
+                        if (registration.active) {
+                            window.logToConsole('ServiceWorker is active');
+                        } else if (registration.installing) {
+                            window.logToConsole('ServiceWorker is installing');
+                        } else if (registration.waiting) {
+                            window.logToConsole('ServiceWorker is waiting');
+                        }
+                        
+                        // Post a test message to verify communication
+                        setTimeout(() => {
+                            if (navigator.serviceWorker.controller) {
+                                navigator.serviceWorker.controller.postMessage({
+                                    type: 'HEALTH_CHECK',
+                                    timestamp: Date.now()
+                                });
+                                window.logToConsole('Sent test message to ServiceWorker');
+                            } else {
+                                window.logToConsole('No active ServiceWorker controller found', true);
+                            }
+                        }, 2000);
                     })
                     .catch(function(error) {
                         window.logToConsole('ServiceWorker registration failed: ' + error, true);
+                        
+                        // Try to get more detailed error info
+                        fetch('./service-worker.js')
+                            .then(response => {
+                                window.logToConsole(`ServiceWorker fetch test: status=${response.status}, content-type=${response.headers.get('content-type')}`);
+                            })
+                            .catch(fetchError => {
+                                window.logToConsole(`ServiceWorker fetch test failed: ${fetchError}`, true);
+                            });
+                        
+                        // Inform user that notifications might not work properly
+                        window.logToConsole('Notifications may not work properly due to ServiceWorker issues', true);
                     });
             });
         }
