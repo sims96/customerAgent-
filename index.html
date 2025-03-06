@@ -30,6 +30,53 @@
             color: transparent;
         }
 
+/* Futuristic brand name styling */
+.brand-name {
+    position: relative;
+    color: rgb(255, 255, 255);
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.brand-name::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.8), 
+        #ff1493,
+        #9370DB,
+        rgba(255, 255, 255, 0.8), 
+        transparent);
+    transform: scaleX(0.8);
+    transform-origin: center;
+    transition: transform 0.5s ease;
+}
+
+.brand-name:hover::after {
+    transform: scaleX(1);
+}
+
+/* Subtle glow animation */
+@keyframes brand-glow {
+    0%, 100% {
+        text-shadow: 0 0 8px rgba(255, 20, 147, 0.4);
+    }
+    50% {
+        text-shadow: 0 0 15px rgba(255, 255, 255, 0.6);
+    }
+}
+
+.brand-name {
+    animation: brand-glow 3s infinite ease-in-out;
+}
+
+
         .card {
             background: rgba(25, 29, 43, 0.8);
             backdrop-filter: blur(10px);
@@ -251,15 +298,15 @@
     </style>
 </head>
 <body>
-    <div class="min-h-screen flex flex-col">
+    <div class="min-h-screen flex flex-col box-sizing-border-box">
         <!-- Top navigation bar -->
         <nav class="brand-gradient shadow-lg">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 box-sizing-border-box">
+            <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 box-sizing-border-box">
                 <div class="flex justify-between h-16">
-                    <div class="flex items-center">
+                    <div class="flex items-center -ml-16">
                         <div class="flex items-center">
                             <img src="./logo.jpg" alt="LeSims Logo" class="h-10 w-10 rounded-full mr-3">
-                            <span class="text-white text-xl font-bold">Complexe LeSims</span>
+                            <span class="brand-name text-base sm:text-lg md:text-xl lg:text-xl font-bold uppercase tracking-wider">Complexe <span class="text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-300 font-extrabold">LeSims</span></span>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
@@ -276,7 +323,7 @@
                         </div>
                         
                         <!-- Notification Bell (hidden until connected) - Now at extreme right -->
-                        <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center cursor-pointer hidden relative">
+                        <div id="notification-bell" class="notification-bell btn-secondary h-9 w-9 rounded-full flex items-center justify-center -mr-10 cursor-pointer hidden relative">
                             <i class="fas fa-bell"></i>
                             <div id="notification-badge" class="notification-badge hidden absolute -top-1 -right-1 bg-red-500 rounded-full min-w-[18px] h-[18px] flex items-center justify-center text-xs font-bold">
                                 <span>0</span>
@@ -308,19 +355,10 @@
                         <button id="connect-btn" class="btn-primary py-2 px-4 rounded-md flex-1 flex items-center justify-center">
                             <i class="fas fa-plug mr-2"></i> Connect
                         </button>
-                        <button id="test-connection-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
-                            <i class="fas fa-vial mr-1"></i> Test
-                        </button>
-                        <button id="create-test-data-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
-                            <i class="fas fa-flask mr-1"></i> Test Data
-                        </button>
                         <button id="test-notification-btn" class="btn-secondary py-2 px-4 rounded-md flex items-center justify-center">
                             <i class="fas fa-bell mr-1"></i> Test Notification
                         </button>
                     </div>
-                </div>
-                <div class="mt-2 text-sm text-center text-gray-400">
-                    <span id="connection-status">Not connected</span>
                 </div>
             </div>
 

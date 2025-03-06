@@ -330,28 +330,6 @@
       }
     },
     
-    // Handler for create test data button click
-    async handleCreateTestDataClick() {
-      if (!window.dashboardState.connected) {
-        window.logToConsole('Must be connected to create test data', true);
-        return;
-      }
-      
-      this.elements.createTestDataBtn.innerHTML = '<div class="loader mr-1"></div> Creating';
-      this.elements.createTestDataBtn.disabled = true;
-      
-      try {
-        const result = await window.api.createTestData();
-        window.logToConsole(`Test data created successfully: ${JSON.stringify(result)}`);
-        await this.refreshConversationList();
-        this.elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
-        this.elements.createTestDataBtn.disabled = false;
-      } catch (error) {
-        window.logToConsole(`Failed to create test data: ${error.message}`, true);
-        this.elements.createTestDataBtn.innerHTML = '<i class="fas fa-flask mr-1"></i> Test Data';
-        this.elements.createTestDataBtn.disabled = false;
-      }
-    },
     
     // Handler for test notification button click
     async handleTestNotificationClick() {
