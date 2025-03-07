@@ -62,6 +62,20 @@
     transform: scaleX(1);
 }
 
+
+@media (max-width: 767px) {
+  .brand-name {
+    font-size: 0.875rem !important; /* 14px */
+    letter-spacing: 0.03em !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .brand-name {
+    font-size: 1rem !important; /* 16px */
+  }
+}
+
 /* Subtle glow animation */
 @keyframes brand-glow {
     0%, 100% {
@@ -366,15 +380,15 @@
         <nav class="brand-gradient shadow-lg">
             <div class="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 box-sizing-border-box">
                 <div class="flex justify-between h-16">
-                    <div class="flex items-center -ml-5">
-                        <div class="flex items-center">
-                            <img src="./logo.jpg" alt="LeSims Logo" class="h-10 w-10 rounded-full mr-3">
-                            <span class="brand-name text-base sm:text-lg md:text-xl lg:text-xl font-bold uppercase tracking-wider">Complexe <span class="text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-300 font-extrabold">LeSims</span></span>
+                    <div class="flex items-center -ml-2">
+                        <div class="flex items-center gap-1">
+                            <img src="./logo.jpg" alt="LeSims Logo" class="h-10 w-10 rounded-full">
+                            <span class="brand-name text-base sm:text-base md:text-base lg:text-lg font-bold uppercase tracking-wider">Complexe <span class="text-transparent bg-clip-text bg-gradient-to-r from-white to-blue-300 font-extrabold">LeSims</span></span>
                         </div>
                     </div>
                     <div class="flex items-center space-x-4">
                         <!-- Connection Status Indicator -->
-                        <div id="status-indicator" class="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-white">
+                        <div id="status-indicator" class="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-900 text-white -mr-2">
                             <span class="h-2 w-2 mr-2 rounded-full bg-red-500 status-pulse"></span>
                             Disconnected
                         </div>
@@ -382,7 +396,7 @@
                         <!-- Agent ID Display -->
                         <div class="text-white text-sm">
                             <span class="opacity-70">Agent ID:</span> 
-                            <span id="agent-id-display" class="font-mono ml-1"></span>
+                            <span id="agent-id-display" class="font-mono -mr-10"></span>
                         </div>
                         
                         <!-- Notification Bell (hidden until connected) - Now at extreme right -->
@@ -586,6 +600,9 @@
                     </button>
                     <button id="mobile-hand-back-btn" class="btn-secondary h-8 w-8 rounded-full flex items-center justify-center text-sm hidden">
                         <i class="fas fa-robot"></i>
+                    </button>
+                    <button id="mobile-reset-btn" class="bg-red-600 hover:bg-red-700 text-white h-8 w-8 rounded-full flex items-center justify-center text-sm">
+                        <i class="fas fa-redo-alt"></i>
                     </button>
                     <button id="mobile-refresh-btn" class="btn-secondary h-8 w-8 rounded-full flex items-center justify-center text-sm">
                         <i class="fas fa-sync-alt"></i>
