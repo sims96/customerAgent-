@@ -128,20 +128,6 @@
         }
       },
       
-      // Create test data
-      async createTestData() {
-        const testUserId = `test_${Date.now()}`;
-        window.logToConsole(`Creating test data for user ID: ${testUserId}`);
-        
-        return this.request(
-          '/api/test/create-data',
-          'POST',
-          {
-            userId: testUserId
-          }
-        );
-      },
-      
       // Test connection to API
       async testConnection() {
         try {

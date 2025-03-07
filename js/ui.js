@@ -19,6 +19,170 @@
       
       // Initialize UI state
       this.updateConnectionStatus(false);
+      
+      // Initialize mobile chat interface if available
+      if (window.mobileChat && typeof window.mobileChat.initialize === 'function') {
+        window.mobileChat.initialize();
+      }
+    },
+    
+    // Helper: Animate counter from start to end value
+    animateCounter(element, start, end) {
+      if (!element || start === end) return;
+      
+      const duration = 1000; // ms
+      const startTime = performance.now();
+      
+      function updateCounter(timestamp) {
+        const elapsed = timestamp - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Easing function (ease-out)
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        const current = Math.floor(start + (end - start) * easeProgress);
+        element.textContent = current;
+        
+        if (progress < 1) {
+          requestAnimationFrame(updateCounter);
+        } else {
+          element.textContent = end;
+        }
+      }
+      
+      requestAnimationFrame(updateCounter);
+    },
+    
+    // Helper: Format relative time
+    formatRelativeTime(timestamp) {
+      if (!timestamp) return 'N/A';
+      
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diffMs = now - date;
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+      
+      if (diffSecs < 60) return 'just now';
+      if (diffMins < 60) return `${diffMins}m ago`;
+      if (diffHours < 24) return `${diffHours}h ago`;
+      if (diffDays < 7) return `${diffDays}d ago`;
+      
+      return date.toLocaleDateString();
+    },
+    
+    // Helper: Check if we're in mobile view
+    isMobileView() {
+      return window.innerWidth < 768;
+    },
+    
+    // Toggle notification panel visibility
+    toggleNotificationPanel() {
+      if (this.elements.notificationPanel) {
+        if (this.elements.notificationPanel.classList.contains('hidden')) {
+          this.showNotificationPanel();
+        } else {
+          this.hideNotificationPanel();
+        }
+      }
+    },
+    
+    // Show notification panel
+    showNotificationPanel() {
+      if (this.elements.notificationPanel) {
+        this.elements.notificationPanel.classList.remove('hidden');
+        
+        // Publish event that panel was opened
+        window.dispatchEvent(new CustomEvent('dashboard:notificationPanelOpened'));
+      }
+    },
+    
+    // Hide notification panel
+    hideNotificationPanel() {
+      if (this.elements.notificationPanel) {
+        this.elements.notificationPanel.classList.add('hidden');
+        
+        // Publish event that panel was closed
+        window.dispatchEvent(new CustomEvent('dashboard:notificationPanelClosed'));
+      }
+    },
+    
+    // Clear all notifications
+    clearNotifications() {
+      // Reset notification UI
+      if (this.elements.notificationsList) {
+        this.elements.notificationsList.innerHTML = `
+          <div class="text-gray-500 text-center p-6">
+            <i class="fas fa-bell mb-2 text-2xl opacity-30"></i>
+            <p>No notifications</p>
+          </div>
+        `;
+      }
+      
+      // Update notification bell and badge
+      if (this.elements.notificationBell) {
+        this.elements.notificationBell.classList.remove('has-unread');
+      }
+      
+      if (this.elements.notificationBadge) {
+        this.elements.notificationBadge.classList.add('hidden');
+      }
+      
+      // Publish event that notifications were cleared
+      window.dispatchEvent(new CustomEvent('dashboard:notificationsCleared'));
+    },
+    
+    // Toggle notification sound
+    toggleNotificationSound() {
+      window.dashboardState.notificationSettings.soundEnabled = !window.dashboardState.notificationSettings.soundEnabled;
+      
+      // Update sound toggle button
+      if (this.elements.notificationsSoundToggle) {
+        this.elements.notificationsSoundToggle.innerHTML = window.dashboardState.notificationSettings.soundEnabled ? 
+          '<i class="fas fa-volume-up"></i>' : 
+          '<i class="fas fa-volume-mute"></i>';
+      }
+      
+      // Save setting to localStorage
+      try {
+        localStorage.setItem('notificationSoundsEnabled', window.dashboardState.notificationSettings.soundEnabled);
+      } catch (e) {
+        console.log('Could not store in localStorage');
+      }
+      
+      // Publish event that sound setting was changed
+      window.dispatchEvent(new CustomEvent('dashboard:notificationSoundChanged', {
+        detail: {
+          enabled: window.dashboardState.notificationSettings.soundEnabled
+        }
+      }));
+    },
+    
+    // Update notification count badge
+    updateNotificationBadge(count) {
+      if (count > 0) {
+        if (this.elements.notificationBadge) {
+          const countSpan = this.elements.notificationBadge.querySelector('span');
+          if (countSpan) {
+            countSpan.textContent = count;
+          }
+          this.elements.notificationBadge.classList.remove('hidden');
+        }
+        
+        if (this.elements.notificationBell) {
+          this.elements.notificationBell.classList.add('has-unread');
+        }
+      } else {
+        if (this.elements.notificationBadge) {
+          this.elements.notificationBadge.classList.add('hidden');
+        }
+        
+        if (this.elements.notificationBell) {
+          this.elements.notificationBell.classList.remove('has-unread');
+        }
+      }
     },
     
     // Cache references to frequently accessed DOM elements
@@ -278,6 +442,11 @@
         // Hide notification bell when disconnected
         if (this.elements.notificationBell) {
           this.elements.notificationBell.classList.add('hidden');
+        }
+        
+        // Close mobile chat if it's open
+        if (!connected && window.mobileChat && typeof window.mobileChat.closeChat === 'function') {
+          window.mobileChat.closeChat();
         }
       }
       
@@ -549,6 +718,11 @@
           this.elements.messageInput.placeholder = 'Type a message...';
           this.elements.sendMessageForm.querySelector('button[type="submit"]').disabled = false;
         }
+        
+        // Also update mobile view if the same conversation is open there
+        if (window.mobileChat && window.mobileChat.activeUserId === window.dashboardState.selectedUserId) {
+          window.mobileChat.refreshChat();
+        }
       } catch (error) {
         window.logToConsole(`Failed to take over conversation: ${error.message}`, true);
         this.elements.takeOverBtn.disabled = false;
@@ -586,6 +760,11 @@
           this.elements.messageInput.disabled = true;
           this.elements.messageInput.placeholder = 'Take over to send messages';
           this.elements.sendMessageForm.querySelector('button[type="submit"]').disabled = true;
+        }
+        
+        // Also update mobile view if the same conversation is open there
+        if (window.mobileChat && window.mobileChat.activeUserId === window.dashboardState.selectedUserId) {
+          window.mobileChat.refreshChat();
         }
       } catch (error) {
         window.logToConsole(`Failed to hand back conversation: ${error.message}`, true);
@@ -643,6 +822,11 @@
         await this.refreshConversationDetail();
         await this.refreshConversationList();
         
+        // Also update mobile view if the same conversation is open there
+        if (window.mobileChat && window.mobileChat.activeUserId === window.dashboardState.selectedUserId) {
+          window.mobileChat.refreshChat();
+        }
+        
         window.logToConsole('Conversation controls reset successfully');
         this.elements.resetConversationBtn.disabled = false;
         this.elements.resetConversationBtn.innerHTML = '<i class="fas fa-redo-alt mr-1"></i> Reset';
@@ -693,6 +877,11 @@
         
         // Force auto-refresh of conversation list after sending a message
         await this.refreshConversationList();
+        
+        // Also update mobile view if the same conversation is open there
+        if (window.mobileChat && window.mobileChat.activeUserId === window.dashboardState.selectedUserId) {
+          window.mobileChat.refreshChat();
+        }
       } catch (error) {
         window.logToConsole(`Failed to send message: ${error.message}`, true);
         if (typingIndicator) {
@@ -762,11 +951,19 @@
     },
     
     // Show conversation detail
-    async showConversationDetail(userId) {
+    showConversationDetail(userId) {
       try {
         window.logToConsole(`Loading conversation details for user: ${userId}`);
         window.dashboardState.selectedUserId = userId;
         
+        // Check if we're on mobile
+        if (this.isMobileView() && window.mobileChat) {
+          // Use mobile chat view instead
+          window.mobileChat.openChat(userId);
+          return;
+        }
+        
+        // Continue with desktop behavior
         if (this.elements.userId) {
           this.elements.userId.textContent = userId;
         }
@@ -775,7 +972,7 @@
           this.elements.conversationDetail.classList.remove('hidden');
         }
         
-        await this.refreshConversationDetail();
+        this.refreshConversationDetail();
       } catch (error) {
         window.logToConsole(`Failed to show conversation: ${error.message}`, true);
       }
