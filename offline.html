@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - Complexe LeSims Dashboard</title>
+    <style>
+        body {
+            background-color: #0f1117;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            text-align: center;
+            padding: 2rem;
+        }
+        .card {
+            background: rgba(25, 29, 43, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            padding: 2rem;
+            margin: 2rem auto;
+            max-width: 500px;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #FF69B4, #9370DB);
+            padding: 5px;
+        }
+        .logo img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        h1 {
+            background: linear-gradient(135deg, #FF69B4, #9370DB);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="logo">
+            <img src="logo.jpg" alt="LeSims Logo">
+        </div>
+        <h1>You're Offline</h1>
+        <p>You appear to be offline. Please check your connection and try again.</p>
+        <p>The LeSims Dashboard requires an internet connection to function properly.</p>
+        <button onclick="window.location.reload()">Try Again</button>
+    </div>
+</body>
+</html>
