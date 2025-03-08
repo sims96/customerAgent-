@@ -1,7 +1,7 @@
-// service-worker.js - Enhanced for PWA implementation
+// service-worker.js - Enhanced for PWA functionality and notification handler for Complexe LeSims Dashboard
 
-// Version your cache when you make updates
-const CACHE_NAME = 'lesims-dashboard-cache-v1';
+// Cache name for offline functionality
+const CACHE_NAME = 'lesims-dashboard-cache-v2';
 
 // Assets to cache for offline functionality
 const CACHE_ASSETS = [
@@ -14,10 +14,11 @@ const CACHE_ASSETS = [
   './js/ui.js',
   './js/notification-system.js',
   './js/mobile-chat.js',
+  './js/pwa-install.js',
   './notification-sounds/new-customer.mp3',
   './notification-sounds/order-confirmed.mp3',
   './notification-sounds/help-needed.mp3',
-  './offline.html',
+  // Icons
   './icons/icon-72x72.png',
   './icons/icon-96x96.png',
   './icons/icon-128x128.png',
@@ -25,7 +26,11 @@ const CACHE_ASSETS = [
   './icons/icon-152x152.png',
   './icons/icon-192x192.png',
   './icons/icon-384x384.png',
-  './icons/icon-512x512.png'
+  './icons/icon-512x512.png',
+  './icons/apple-icon-180x180.png',
+  // External resources
+  'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // Enhanced credential handling with validation
@@ -109,103 +114,7 @@ self.addEventListener('sync', event => {
   if (event.tag === 'check-notifications') {
     console.log('[Service Worker] Performing one-time sync: check-notifications');
     event.waitUntil(checkForNotifications());
-  } else if (event.tag === 'send-message') {
-    console.log('[Service Worker] Processing offline messages');
-    event.waitUntil(sendPendingMessages());
   }
-});
-
-// Enhanced fetch event handler with improved caching strategy
-self.addEventListener('fetch', event => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-  
-  // Handle API requests with network-first strategy
-  if (event.request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          // Clone the response
-          const responseToCache = response.clone();
-          
-          // Don't cache API responses unless they are static resources
-          if (event.request.url.includes('/api/static/')) {
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-          }
-          
-          return response;
-        })
-        .catch(() => {
-          // Fall back to cache for offline support
-          return caches.match(event.request)
-            .then(cachedResponse => {
-              if (cachedResponse) {
-                return cachedResponse;
-              }
-              
-              // If this is a navigation request, show offline page
-              if (event.request.mode === 'navigate') {
-                return caches.match('./offline.html');
-              }
-              
-              // Otherwise return a basic error response
-              return new Response('Network error occurred', {
-                status: 503,
-                headers: { 'Content-Type': 'text/plain' }
-              });
-            });
-        })
-    );
-    return;
-  }
-  
-  // Cache-first strategy for static assets
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return the response
-        if (response) {
-          return response;
-        }
-        
-        // Not in cache - fetch from network
-        return fetch(event.request)
-          .then(response => {
-            // Check if valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // Clone the response
-            const responseToCache = response.clone();
-            
-            // Add response to cache
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-              
-            return response;
-          })
-          .catch(error => {
-            console.error('[Service Worker] Fetch error:', error);
-            
-            // If this is a navigation request, show offline page
-            if (event.request.mode === 'navigate') {
-              return caches.match('./offline.html');
-            }
-            
-            // Return a basic offline message for other resources
-            return new Response('You are offline', {
-              status: 503,
-              headers: { 'Content-Type': 'text/plain' }
-            });
-          });
-      })
-  );
 });
 
 // Push event handler
@@ -232,7 +141,7 @@ self.addEventListener('push', event => {
       {
         body: data.body || 'You have a new notification',
         icon: './logo.jpg',
-        badge: './logo.jpg',
+        badge: './icons/icon-72x72.png',
         tag: data.tag || 'default',
         data: data,
         renotify: true,
@@ -360,29 +269,14 @@ self.addEventListener('message', event => {
       console.log('[Service Worker] Received invalid credentials response');
     }
   }
-  else if (event.data.type === 'STORE_OFFLINE_MESSAGE') {
-    // Store message for later sending when offline
-    if (event.data.message && event.data.userId) {
-      storeOfflineMessage(event.data)
-        .then(() => {
-          console.log('[Service Worker] Offline message stored successfully');
-          if (event.source && event.source.postMessage) {
-            event.source.postMessage({
-              type: 'OFFLINE_MESSAGE_STORED',
-              success: true
-            });
-          }
-        })
-        .catch(error => {
-          console.error('[Service Worker] Failed to store offline message:', error);
-          if (event.source && event.source.postMessage) {
-            event.source.postMessage({
-              type: 'OFFLINE_MESSAGE_STORED',
-              success: false,
-              error: error.message
-            });
-          }
-        });
+  else if (event.data.type === 'HEALTH_CHECK') {
+    // Respond to health check to confirm service worker is active
+    if (event.source && event.source.postMessage) {
+      event.source.postMessage({
+        type: 'HEALTH_CHECK_RESPONSE',
+        timestamp: Date.now(),
+        originalTimestamp: event.data.timestamp
+      });
     }
   }
 });
@@ -420,6 +314,55 @@ self.addEventListener('notificationclick', event => {
         if (clients.openWindow) {
           return clients.openWindow('./index.html');
         }
+      })
+  );
+});
+
+// Fetch event for network/cache strategy
+self.addEventListener('fetch', event => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+  
+  // Handle API requests with network-first strategy
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // Fall back to cache for offline support
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Handle all other requests with cache-first strategy
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return the response
+        if (response) {
+          return response;
+        }
+        
+        // Not in cache - fetch from network
+        return fetch(event.request)
+          .then(response => {
+            // Check if valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            
+            // Clone the response
+            const responseToCache = response.clone();
+            
+            // Add response to cache
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+              
+            return response;
+          });
       })
   );
 });
@@ -541,7 +484,7 @@ async function checkForNotifications() {
           {
             body: notification.body || '',
             icon: './logo.jpg',
-            badge: './logo.jpg',
+            badge: './icons/icon-72x72.png',
             tag: notification.id || 'default',
             data: notification,
             vibrate: [100, 50, 100],
@@ -606,242 +549,6 @@ async function checkForNotifications() {
   } catch (error) {
     console.error('[Service Worker] Error checking for notifications:', error);
   }
-}
-
-// Function to store offline messages for later sending
-async function storeOfflineMessage(messageData) {
-  return openOfflineMessagesDB().then(db => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['offlineMessages'], 'readwrite');
-      const store = transaction.objectStore('offlineMessages');
-      
-      const data = {
-        id: Date.now() + '-' + Math.random().toString(36).substring(2, 10),
-        userId: messageData.userId,
-        message: messageData.message,
-        timestamp: Date.now(),
-        attempts: 0
-      };
-      
-      const request = store.add(data);
-      
-      request.onerror = (event) => {
-        console.error('[Service Worker] Error storing offline message:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(data);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  });
-}
-
-// Function to get pending offline messages
-async function getPendingOfflineMessages() {
-  return openOfflineMessagesDB().then(db => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['offlineMessages'], 'readonly');
-      const store = transaction.objectStore('offlineMessages');
-      
-      const request = store.getAll();
-      
-      request.onerror = (event) => {
-        console.error('[Service Worker] Error getting offline messages:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(event.target.result || []);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  });
-}
-
-// Function to remove a sent offline message
-async function removeOfflineMessage(id) {
-  return openOfflineMessagesDB().then(db => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['offlineMessages'], 'readwrite');
-      const store = transaction.objectStore('offlineMessages');
-      
-      const request = store.delete(id);
-      
-      request.onerror = (event) => {
-        console.error('[Service Worker] Error removing offline message:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      request.onsuccess = (event) => {
-        resolve(true);
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  });
-}
-
-// Function to update an offline message (e.g., increment attempts)
-async function updateOfflineMessage(id, updates) {
-  return openOfflineMessagesDB().then(db => {
-    return new Promise((resolve, reject) => {
-      const transaction = db.transaction(['offlineMessages'], 'readwrite');
-      const store = transaction.objectStore('offlineMessages');
-      
-      // First get the existing message
-      const getRequest = store.get(id);
-      
-      getRequest.onerror = (event) => {
-        console.error('[Service Worker] Error getting offline message for update:', event.target.error);
-        reject(event.target.error);
-      };
-      
-      getRequest.onsuccess = (event) => {
-        const message = event.target.result;
-        if (!message) {
-          reject(new Error('Message not found'));
-          return;
-        }
-        
-        // Update the message
-        const updatedMessage = { ...message, ...updates };
-        
-        // Put the updated message back
-        const putRequest = store.put(updatedMessage);
-        
-        putRequest.onerror = (event) => {
-          console.error('[Service Worker] Error updating offline message:', event.target.error);
-          reject(event.target.error);
-        };
-        
-        putRequest.onsuccess = (event) => {
-          resolve(updatedMessage);
-        };
-      };
-      
-      transaction.oncomplete = () => {
-        db.close();
-      };
-    });
-  });
-}
-
-// Function to send pending messages when online
-async function sendPendingMessages() {
-  try {
-    // Check if we have the API credentials
-    if (!apiCredentials || !apiCredentials.apiUrl || !apiCredentials.apiKey) {
-      const creds = await loadCredentialsFromIndexedDB();
-      if (!creds || !creds.apiUrl || !creds.apiKey) {
-        console.log('[Service Worker] No credentials available to send offline messages');
-        return;
-      }
-      apiCredentials = creds;
-    }
-    
-    // Get pending messages
-    const messages = await getPendingOfflineMessages();
-    console.log(`[Service Worker] Found ${messages.length} pending offline messages to send`);
-    
-    if (messages.length === 0) return;
-    
-    // Process each message
-    for (const message of messages) {
-      try {
-        // Only try messages with fewer than 5 attempts
-        if (message.attempts >= 5) {
-          console.log(`[Service Worker] Skipping message ${message.id} - too many attempts (${message.attempts})`);
-          continue;
-        }
-        
-        // Increment the attempt counter
-        await updateOfflineMessage(message.id, { attempts: message.attempts + 1 });
-        
-        // Send to WhatsApp API
-        const response = await fetch(`${apiCredentials.apiUrl}/api/whatsapp/send`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiCredentials.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            userId: message.userId,
-            message: message.message
-          })
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to send message: ${response.status} - ${errorText}`);
-        }
-        
-        // Also store the message in conversation history
-        await fetch(`${apiCredentials.apiUrl}/api/conversation/message?userId=${encodeURIComponent(message.userId)}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiCredentials.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            agentId: 'service-worker',
-            message: message.message
-          })
-        });
-        
-        // If successful, remove the message from the queue
-        await removeOfflineMessage(message.id);
-        console.log(`[Service Worker] Successfully sent offline message ${message.id}`);
-        
-      } catch (error) {
-        console.error(`[Service Worker] Error sending offline message ${message.id}:`, error);
-      }
-    }
-    
-    // Notify clients that offline messages were processed
-    self.clients.matchAll().then(clients => {
-      for (const client of clients) {
-        client.postMessage({
-          type: 'OFFLINE_MESSAGES_PROCESSED'
-        });
-      }
-    });
-    
-  } catch (error) {
-    console.error('[Service Worker] Error processing offline messages:', error);
-  }
-}
-
-// Open IndexedDB for offline messages
-function openOfflineMessagesDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('OfflineMessagesDB', 1);
-    
-    request.onerror = (event) => {
-      console.error('[Service Worker] IndexedDB error:', event.target.error);
-      reject(event.target.error);
-    };
-    
-    request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains('offlineMessages')) {
-        db.createObjectStore('offlineMessages', { keyPath: 'id' });
-      }
-    };
-    
-    request.onsuccess = (event) => {
-      resolve(event.target.result);
-    };
-  });
 }
 
 // IndexedDB functions for persistent credential storage
