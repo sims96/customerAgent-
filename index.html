@@ -6,7 +6,6 @@
     <title>Complexe LeSims - WhatsApp Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#9370DB">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -708,97 +707,20 @@
     </script>
 
 <script>
-    // Android-specific service worker fix
-    (function fixServiceWorkerRegistration() {
-      const isAndroid = /android/i.test(navigator.userAgent);
-      
-      if (!isAndroid) return;
-      
-      console.log('Android: Applying special service worker registration fix');
-      
-      // Try registering with multiple approaches to maximize success chance
-      function attemptServiceWorkerRegistration() {
-        if (!('serviceWorker' in navigator)) {
-          console.log('Android: Service workers not supported in this browser');
-          return Promise.reject('Service workers not supported');
-        }
-        
-        // Method 1: Default registration
-        return navigator.serviceWorker.register('/service-worker.js')
-          .catch(function(error) {
-            console.log('Android: First registration method failed, trying method 2', error);
-            
-            // Method 2: With scope
-            return navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
-          })
-          .catch(function(error) {
-            console.log('Android: Second registration method failed, trying method 3', error);
-            
-            // Method 3: With relative path
-            return navigator.serviceWorker.register('./service-worker.js');
-          })
-          .catch(function(error) {
-            console.log('Android: Third registration method failed, trying method 4', error);
-            
-            // Method 4: With relative path and scope
-            return navigator.serviceWorker.register('./service-worker.js', { scope: './' });
-          })
-          .then(function(registration) {
-            console.log('Android: Service worker registered successfully', registration);
-            
-            // Check for updates
-            registration.update();
-            
-            // Return registration for chaining
-            return registration;
-          })
-          .catch(function(finalError) {
-            console.error('Android: All service worker registration methods failed', finalError);
-            return null;
-          });
-      }
-      
-      // Wait until page is fully loaded
+    // Register the service worker for PWA functionality
+    if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        // Delay slightly to ensure other scripts have initialized
-        setTimeout(function() {
-          attemptServiceWorkerRegistration()
-            .then(function(registration) {
-              if (!registration) return;
-              
-              console.log('Android: Registration successful, waiting for activation');
-              
-              // Wait for activation if needed
-              if (registration.installing) {
-                registration.installing.addEventListener('statechange', function() {
-                  if (this.state === 'activated') {
-                    console.log('Android: Service worker now activated!');
-                  }
-                });
-              }
-            });
-        }, 1000);
-      });
-      
-      // Set up periodic checks to ensure service worker is registered and active
-      setInterval(function() {
-        navigator.serviceWorker.getRegistration()
+        navigator.serviceWorker.register('./service-worker.js')
           .then(function(registration) {
-            if (!registration) {
-              console.log('Android: No service worker registration found, attempting registration');
-              return attemptServiceWorkerRegistration();
-            } else if (registration.active) {
-              console.log('Android: Service worker is active');
-            } else {
-              console.log('Android: Service worker registered but not active yet');
-            }
+            console.log('Service Worker registered with scope:', registration.scope);
           })
           .catch(function(error) {
-            console.error('Android: Error checking service worker status', error);
+            console.error('Service Worker registration failed:', error);
           });
-      }, 60000); // Check every minute
-    })();
-    </script>
+      });
+    }
+  </script>
+
 
     
     <!-- Load core modules -->
@@ -809,7 +731,6 @@
     <script src="js/notification-system.js"></script>
     <script src="js/mobile-chat.js"></script> 
     <script src="service-worker.js"></script>
-    <script src="dashboardApi.js"></script>
     <script src="js/pwa-install.js"></script>
     
 </body>
