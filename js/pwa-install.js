@@ -1,4 +1,4 @@
-// pwa-install.js - Enhanced PWA installation handler with iOS support
+// pwa-install.js - Enhanced PWA installation handler with improved Android support
 
 (function() {
   'use strict';
@@ -10,19 +10,19 @@
     isInstallable: false,
     installButtonVisible: false,
     isIOS: false,
+    isAndroid: false,
+    installationAttempted: false,
     
     // Initialize PWA install functionality
     initialize() {
       window.logToConsole('Initializing PWA installation module');
       
-      // Detect iOS device
-      this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      window.logToConsole(`Device detection - iOS: ${this.isIOS}`);
+      // Improved device detection
+      this.detectDeviceType();
+      window.logToConsole(`Device detection - iOS: ${this.isIOS}, Android: ${this.isAndroid}`);
       
-      // Set up event listeners for install prompt (non-iOS)
-      if (!this.isIOS) {
-        window.addEventListener('beforeinstallprompt', this.handleInstallPrompt.bind(this));
-      }
+      // Set up event listeners for install prompt
+      window.addEventListener('beforeinstallprompt', this.handleInstallPrompt.bind(this));
       
       // Check if already installed
       window.addEventListener('appinstalled', this.handleAppInstalled.bind(this));
@@ -36,7 +36,7 @@
         this.isInstallable = false;
         window.logToConsole('App is already installed and running in standalone mode');
       } else {
-        this.isInstallable = true; // Always true for iOS so we show the button
+        this.isInstallable = true;
         window.logToConsole('App is running in browser mode and may be installable');
         
         // For iOS, show the install button immediately
@@ -45,12 +45,150 @@
             this.showInstallButton();
           }, 2000);
         }
+        
+        // For Android, check installability and show button based on PWA criteria
+        if (this.isAndroid) {
+          this.checkAndroidInstallability();
+        }
+      }
+      
+      // Set up periodic checks for installability on Android
+      if (this.isAndroid) {
+        setInterval(() => {
+          this.checkAndroidInstallability();
+        }, 10000); // Check every 10 seconds
       }
       
       window.logToConsole('PWA installation module initialized');
     },
     
-    // Handle install prompt event (non-iOS)
+    // Enhanced device type detection
+    detectDeviceType() {
+      const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+      
+      // iOS detection
+      this.isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+      
+      // Android detection
+      this.isAndroid = /android/i.test(userAgent);
+    },
+    
+    // Check Android installability based on PWA criteria
+    checkAndroidInstallability() {
+      if (!this.isAndroid || this.installationAttempted || this.deferredPrompt) return;
+      
+      // Check if service worker is registered and active
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(registration => {
+          const hasServiceWorker = !!registration && !!registration.active;
+          
+          // Check if manifest is present
+          const hasManifest = !!document.querySelector('link[rel="manifest"]');
+          
+          // Check if on HTTPS (or localhost for testing)
+          const isSecure = window.location.protocol === 'https:' || 
+                          window.location.hostname === 'localhost' ||
+                          window.location.hostname === '127.0.0.1';
+          
+          // If PWA criteria are met, show the install button
+          if (hasServiceWorker && hasManifest && isSecure) {
+            window.logToConsole('Android PWA criteria met, showing install button');
+            this.showInstallButton();
+            
+            // Create Android-specific installation instructions
+            this.showAndroidInstallationTip();
+          } else {
+            window.logToConsole(`Android PWA criteria not met: serviceWorker=${hasServiceWorker}, manifest=${hasManifest}, secure=${isSecure}`);
+          }
+        }).catch(error => {
+          window.logToConsole(`Error checking service worker: ${error.message}`, true);
+        });
+      }
+    },
+    
+    // Show Android installation tip
+    showAndroidInstallationTip() {
+      // Only show this once per session
+      if (sessionStorage.getItem('androidInstallTipShown')) return;
+      
+      // Create a toast notification for Android users
+      const toast = document.createElement('div');
+      toast.className = 'android-install-tip';
+      toast.innerHTML = `
+        <div class="tip-content">
+          <i class="fas fa-info-circle"></i>
+          <span>Add this app to your home screen for easier access</span>
+          <button id="android-tip-close" class="tip-close">×</button>
+        </div>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      // Add styles
+      const style = document.createElement('style');
+      style.textContent = `
+        .android-install-tip {
+          position: fixed;
+          bottom: 70px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(25, 29, 43, 0.95);
+          border-radius: 12px;
+          padding: 10px 16px;
+          z-index: 9999;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          animation: slide-up 0.3s ease forwards;
+          max-width: 90%;
+        }
+        
+        .tip-content {
+          display: flex;
+          align-items: center;
+          color: white;
+          font-size: 0.9rem;
+        }
+        
+        .tip-content i {
+          margin-right: 8px;
+          color: #9370DB;
+        }
+        
+        .tip-close {
+          margin-left: 12px;
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.7);
+          font-size: 1.2rem;
+          padding: 0 4px;
+          cursor: pointer;
+        }
+        
+        @keyframes slide-up {
+          from { transform: translate(-50%, 100px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+      `;
+      
+      document.head.appendChild(style);
+      
+      // Add close button functionality
+      document.getElementById('android-tip-close').addEventListener('click', () => {
+        toast.remove();
+        style.remove();
+        sessionStorage.setItem('androidInstallTipShown', 'true');
+      });
+      
+      // Auto remove after 8 seconds
+      setTimeout(() => {
+        if (document.body.contains(toast)) {
+          toast.remove();
+          style.remove();
+          sessionStorage.setItem('androidInstallTipShown', 'true');
+        }
+      }, 8000);
+    },
+    
+    // Handle install prompt event
     handleInstallPrompt(event) {
       // Prevent the default browser install prompt
       event.preventDefault();
@@ -63,6 +201,11 @@
       
       // Show the install button
       this.showInstallButton();
+      
+      // Show appropriate instruction based on device type
+      if (this.isAndroid) {
+        this.showAndroidInstallationTip();
+      }
     },
     
     // Handle app installed event
@@ -73,6 +216,7 @@
       this.hideInstallButton();
       this.isInstallable = false;
       this.deferredPrompt = null;
+      this.installationAttempted = true;
       
       // Show a notification
       if (window.notificationSystem && typeof window.notificationSystem.notify === 'function') {
@@ -96,11 +240,16 @@
       installBtn.id = 'pwa-install-btn';
       installBtn.className = 'pwa-install-btn brand-gradient shadow-lg fixed bottom-4 right-4 rounded-full p-3 z-40 flex items-center justify-center hover:scale-105 transition-transform hidden';
       
-      // Different text for iOS vs Android/Desktop
+      // Different text based on device type
       if (this.isIOS) {
         installBtn.innerHTML = `
           <i class="fas fa-download mr-2"></i>
           <span>Add to Home Screen</span>
+        `;
+      } else if (this.isAndroid) {
+        installBtn.innerHTML = `
+          <i class="fas fa-download mr-2"></i>
+          <span>Install App</span>
         `;
       } else {
         installBtn.innerHTML = `
@@ -218,13 +367,50 @@
             font-weight: bold;
             cursor: pointer;
           }
+          
+          /* Android install modal */
+          .android-install-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+          }
+          
+          .android-install-modal.visible {
+            opacity: 1;
+            visibility: visible;
+          }
+          
+          .android-install-content {
+            background-color: #191d2b;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            text-align: center;
+          }
         `;
         document.head.appendChild(styleElement);
       }
       
-      // Create iOS install modal if on iOS
+      // Create device-specific install modals
       if (this.isIOS) {
         this.createIOSInstallModal();
+      } else if (this.isAndroid) {
+        this.createAndroidInstallModal();
       }
     },
     
@@ -272,6 +458,50 @@
       });
     },
     
+    // Create Android installation instructions modal
+    createAndroidInstallModal() {
+      if (document.getElementById('android-install-modal')) {
+        return;
+      }
+      
+      const modal = document.createElement('div');
+      modal.id = 'android-install-modal';
+      modal.className = 'android-install-modal';
+      
+      modal.innerHTML = `
+        <div class="android-install-content">
+          <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
+          <p class="text-sm text-gray-300">Follow these steps to install this app:</p>
+          
+          <div class="ios-instructions">
+            <div class="ios-step">
+              <div class="ios-icon"><i class="fas fa-ellipsis-v"></i></div>
+              <div>Tap the menu button (three dots) in your browser</div>
+            </div>
+            
+            <div class="ios-step">
+              <div class="ios-icon"><i class="fas fa-download"></i></div>
+              <div>Select <strong>Install app</strong> or <strong>Add to Home screen</strong></div>
+            </div>
+            
+            <div class="ios-step">
+              <div class="ios-icon"><i class="fas fa-check-circle"></i></div>
+              <div>Tap <strong>Install</strong> when prompted</div>
+            </div>
+          </div>
+          
+          <button id="android-install-close" class="ios-install-close">Got it</button>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Add event listener to close button
+      document.getElementById('android-install-close').addEventListener('click', () => {
+        modal.classList.remove('visible');
+      });
+    },
+    
     // Show the install button
     showInstallButton() {
       const installBtn = document.getElementById('pwa-install-btn');
@@ -306,20 +536,40 @@
         if (modal) {
           modal.classList.add('visible');
         }
+      } else if (this.isAndroid) {
+        if (this.deferredPrompt) {
+          // Use the stored prompt if available
+          this.installApp();
+        } else {
+          // Show manual instructions for Android
+          const modal = document.getElementById('android-install-modal');
+          if (modal) {
+            modal.classList.add('visible');
+          }
+        }
       } else {
-        // Regular PWA installation
+        // Regular PWA installation for other platforms
         this.installApp();
       }
     },
     
-    // Install the app (non-iOS)
+    // Install the app
     async installApp() {
       if (!this.deferredPrompt) {
         window.logToConsole('Cannot install: No install prompt available', true);
+        
+        // If no prompt is available on Android, show the manual instructions
+        if (this.isAndroid) {
+          const modal = document.getElementById('android-install-modal');
+          if (modal) {
+            modal.classList.add('visible');
+          }
+        }
         return;
       }
       
       window.logToConsole('User initiated app installation');
+      this.installationAttempted = true;
       
       // Show the install prompt
       this.deferredPrompt.prompt();
