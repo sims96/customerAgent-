@@ -708,20 +708,37 @@
     </script>
 
 <script>
-    // Register the service worker for PWA functionality
+    // Reliable service worker registration
     if ('serviceWorker' in navigator) {
+      // Delay registration to ensure page is fully loaded
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+        // Register with explicit scope
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
           .then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
+            console.log('Service Worker registered successfully with scope:', registration.scope);
+            
+            // Check if service worker is active
+            if (registration.active) {
+              console.log('Service Worker is active!');
+              
+              // Force a refresh of the PWA installability check
+              if (window.pwaInstall && typeof window.pwaInstall.checkAndroidInstallability === 'function') {
+                setTimeout(() => {
+                  window.pwaInstall.checkAndroidInstallability();
+                }, 2000);
+              }
+            } else {
+              console.log('Service Worker registered but not yet active');
+            }
           })
           .catch(function(error) {
             console.error('Service Worker registration failed:', error);
           });
       });
+    } else {
+      console.error('Service Workers not supported in this browser');
     }
   </script>
-
 
     
     <!-- Load core modules -->
