@@ -608,3 +608,111 @@
     }
   });
 })();
+
+(function forceAndroidInstallButton() {
+  // Check if we're on Android
+  const isAndroid = /android/i.test(navigator.userAgent);
+  
+  if (!isAndroid) return;
+  
+  // Show install button after a delay regardless of service worker status
+  setTimeout(() => {
+    console.log('Forcing Android install button visibility');
+    
+    // Create or get the install button
+    let installBtn = document.getElementById('pwa-install-btn');
+    
+    if (!installBtn) {
+      installBtn = document.createElement('button');
+      installBtn.id = 'pwa-install-btn';
+      installBtn.className = 'pwa-install-btn brand-gradient shadow-lg fixed bottom-4 right-4 rounded-full p-3 z-40 flex items-center justify-center hover:scale-105 transition-transform';
+      
+      installBtn.innerHTML = `
+        <i class="fas fa-download mr-2"></i>
+        <span>Install App</span>
+      `;
+      
+      document.body.appendChild(installBtn);
+    }
+    
+    // Force visibility
+    installBtn.classList.remove('hidden');
+    installBtn.style.display = 'flex';
+    
+    // Add click handler
+    installBtn.addEventListener('click', () => {
+      // Create Android installation instructions modal
+      let modal = document.getElementById('android-install-modal');
+      
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'android-install-modal';
+        modal.className = 'fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4';
+        
+        modal.innerHTML = `
+          <div class="bg-gray-900 rounded-xl p-5 max-w-md w-full">
+            <h3 class="text-xl font-bold mb-4 text-white">Install LeSims Dashboard</h3>
+            <p class="text-gray-300 mb-4">To install this app on your Android device:</p>
+            
+            <ol class="space-y-4 text-gray-300 mb-6">
+              <li class="flex items-start">
+                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">1</span>
+                <div>Tap the menu button (three dots) in the top right of your browser</div>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">2</span>
+                <div>Select "Install app" or "Add to Home screen" from the menu</div>
+              </li>
+              <li class="flex items-start">
+                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">3</span>
+                <div>Follow the installation prompts to add the app to your home screen</div>
+              </li>
+            </ol>
+            
+            <button id="android-modal-close" class="w-full py-2 px-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg font-bold">Got it</button>
+          </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Add close button handler
+        document.getElementById('android-modal-close').addEventListener('click', () => {
+          modal.style.display = 'none';
+        });
+      }
+      
+      // Show the modal
+      modal.style.display = 'flex';
+    });
+    
+    // Create a tip notification
+    let tip = document.createElement('div');
+    tip.className = 'fixed bottom-24 left-4 right-4 bg-gray-900 bg-opacity-95 text-white p-3 rounded-lg z-40 shadow-lg';
+    tip.innerHTML = `
+      <div class="flex items-center">
+        <i class="fas fa-info-circle text-purple-400 mr-2 text-xl"></i>
+        <div class="flex-1">
+          <p class="font-medium">Install this app to your home screen for quick access</p>
+          <p class="text-sm text-gray-300">Click the install button or use Chrome menu → Install app</p>
+        </div>
+        <button id="close-tip" class="ml-2 text-gray-400 hover:text-white">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `;
+    
+    document.body.appendChild(tip);
+    
+    document.getElementById('close-tip').addEventListener('click', () => {
+      tip.remove();
+    });
+    
+    // Auto hide tip after 10 seconds
+    setTimeout(() => {
+      if (document.body.contains(tip)) {
+        tip.remove();
+      }
+    }, 10000);
+    
+  }, 5000); // 5 second delay to ensure page is fully loaded
+})();
