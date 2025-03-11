@@ -608,111 +608,206 @@
     }
   });
 })();
-
-(function forceAndroidInstallButton() {
-  // Check if we're on Android
+(function fixAndroidInstallation() {
   const isAndroid = /android/i.test(navigator.userAgent);
-  
   if (!isAndroid) return;
   
-  // Show install button after a delay regardless of service worker status
-  setTimeout(() => {
-    console.log('Forcing Android install button visibility');
+  console.log('Applying Android-specific PWA installation fixes');
+  
+  // Fix 1: Force direct service worker registration for Android
+  function registerServiceWorkerDirectly() {
+    try {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./service-worker.js', { scope: './' })
+          .then(function(registration) {
+            console.log('Android: Service worker registered successfully', registration.scope);
+            
+            // Wait for it to activate
+            if (registration.installing) {
+              registration.installing.addEventListener('statechange', function() {
+                if (this.state === 'activated') {
+                  console.log('Android: Service worker now activated!');
+                  // Force the install button to show
+                  showAndroidInstallButton();
+                }
+              });
+            } else if (registration.active) {
+              console.log('Android: Service worker already active!');
+              showAndroidInstallButton();
+            }
+          })
+          .catch(function(error) {
+            console.error('Android: Service worker registration failed:', error);
+          });
+      }
+    } catch (error) {
+      console.error('Android service worker registration error:', error);
+    }
+  }
+  
+  // Fix 2: Create a direct installation experience for Android
+  function showAndroidInstallButton() {
+    // Check if already installed or not installable
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      console.log('Android: App already installed in standalone mode');
+      return;
+    }
     
-    // Create or get the install button
-    let installBtn = document.getElementById('pwa-install-btn');
+    console.log('Android: Showing install button');
+    
+    // Get or create button
+    let installBtn = document.getElementById('android-install-btn');
     
     if (!installBtn) {
       installBtn = document.createElement('button');
-      installBtn.id = 'pwa-install-btn';
-      installBtn.className = 'pwa-install-btn brand-gradient shadow-lg fixed bottom-4 right-4 rounded-full p-3 z-40 flex items-center justify-center hover:scale-105 transition-transform';
-      
-      installBtn.innerHTML = `
-        <i class="fas fa-download mr-2"></i>
-        <span>Install App</span>
-      `;
-      
+      installBtn.id = 'android-install-btn';
+      installBtn.className = 'fixed bottom-24 right-4 shadow-lg rounded-full py-3 px-5 z-50 bg-gradient-to-r from-pink-500 to-purple-600 text-white font-bold';
+      installBtn.innerHTML = '<i class="fas fa-download mr-2"></i> Install App';
       document.body.appendChild(installBtn);
+      
+      // Add styles
+      const style = document.createElement('style');
+      style.textContent = `
+        #android-install-btn {
+          animation: pulse-android 2s infinite;
+          transform-origin: center;
+        }
+        
+        @keyframes pulse-android {
+          0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.7); }
+          70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(236, 72, 153, 0); }
+          100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(236, 72, 153, 0); }
+        }
+        
+        .android-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0,0,0,0.8);
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        
+        .android-modal-content {
+          background: #1f2937;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 350px;
+          padding: 20px;
+          color: white;
+        }
+      `;
+      document.head.appendChild(style);
     }
     
-    // Force visibility
-    installBtn.classList.remove('hidden');
-    installBtn.style.display = 'flex';
-    
-    // Add click handler
-    installBtn.addEventListener('click', () => {
-      // Create Android installation instructions modal
-      let modal = document.getElementById('android-install-modal');
-      
-      if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'android-install-modal';
-        modal.className = 'fixed top-0 left-0 right-0 bottom-0 bg-black bg-opacity-80 z-50 flex items-center justify-center p-4';
-        
-        modal.innerHTML = `
-          <div class="bg-gray-900 rounded-xl p-5 max-w-md w-full">
-            <h3 class="text-xl font-bold mb-4 text-white">Install LeSims Dashboard</h3>
-            <p class="text-gray-300 mb-4">To install this app on your Android device:</p>
-            
-            <ol class="space-y-4 text-gray-300 mb-6">
-              <li class="flex items-start">
-                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">1</span>
-                <div>Tap the menu button (three dots) in the top right of your browser</div>
-              </li>
-              <li class="flex items-start">
-                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">2</span>
-                <div>Select "Install app" or "Add to Home screen" from the menu</div>
-              </li>
-              <li class="flex items-start">
-                <span class="bg-purple-800 rounded-full w-6 h-6 flex items-center justify-center mr-2 flex-shrink-0 mt-0.5">3</span>
-                <div>Follow the installation prompts to add the app to your home screen</div>
-              </li>
-            </ol>
-            
-            <button id="android-modal-close" class="w-full py-2 px-4 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-lg font-bold">Got it</button>
-          </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Add close button handler
-        document.getElementById('android-modal-close').addEventListener('click', () => {
-          modal.style.display = 'none';
+    // Handle click - show custom install menu
+    installBtn.addEventListener('click', function() {
+      // Try using the beforeinstallprompt event result if it exists
+      if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        window.deferredPrompt.userChoice.then(function(choiceResult) {
+          console.log('Android: User installation choice:', choiceResult.outcome);
+          window.deferredPrompt = null;
         });
+        return;
       }
       
-      // Show the modal
-      modal.style.display = 'flex';
-    });
-    
-    // Create a tip notification
-    let tip = document.createElement('div');
-    tip.className = 'fixed bottom-24 left-4 right-4 bg-gray-900 bg-opacity-95 text-white p-3 rounded-lg z-40 shadow-lg';
-    tip.innerHTML = `
-      <div class="flex items-center">
-        <i class="fas fa-info-circle text-purple-400 mr-2 text-xl"></i>
-        <div class="flex-1">
-          <p class="font-medium">Install this app to your home screen for quick access</p>
-          <p class="text-sm text-gray-300">Click the install button or use Chrome menu → Install app</p>
+      // Fallback to a visual guide
+      const modal = document.createElement('div');
+      modal.className = 'android-modal';
+      modal.innerHTML = `
+        <div class="android-modal-content">
+          <h3 class="text-xl font-bold mb-4">Install LeSims Dashboard</h3>
+          <p class="mb-4">Since automatic installation isn't available, follow these steps:</p>
+          
+          <div class="space-y-3 mb-6">
+            <div class="flex items-center">
+              <span class="bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center mr-3">1</span>
+              <span>Tap on the <strong>⋮</strong> menu in Chrome</span>
+            </div>
+            <div class="flex items-center">
+              <span class="bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center mr-3">2</span>
+              <span>Look for "Install app" option</span>
+            </div>
+            <div class="flex items-center">
+              <span class="bg-purple-600 rounded-full w-6 h-6 flex items-center justify-center mr-3">3</span>
+              <span>If not found, use "Add to Home screen"</span>
+            </div>
+          </div>
+          
+          <div class="flex space-x-3">
+            <button class="flex-1 py-2 px-4 bg-purple-600 rounded-lg font-medium" id="android-try-chrome">Try Chrome</button>
+            <button class="flex-1 py-2 px-4 bg-gray-700 rounded-lg" id="android-modal-close">Close</button>
+          </div>
         </div>
-        <button id="close-tip" class="ml-2 text-gray-400 hover:text-white">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `;
-    
-    document.body.appendChild(tip);
-    
-    document.getElementById('close-tip').addEventListener('click', () => {
-      tip.remove();
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Set up close button
+      document.getElementById('android-modal-close').addEventListener('click', function() {
+        modal.remove();
+      });
+      
+      // Set up "Try Chrome" button
+      document.getElementById('android-try-chrome').addEventListener('click', function() {
+        // Try opening in Chrome if not already in Chrome
+        if (!/chrome/i.test(navigator.userAgent)) {
+          window.location.href = 'intent://navigate?url=' + encodeURIComponent(window.location.href) + '#Intent;scheme=https;package=com.android.chrome;end';
+        } else {
+          modal.remove();
+          // Show a simple toast message
+          const toast = document.createElement('div');
+          toast.className = 'fixed bottom-4 left-4 right-4 bg-gray-800 text-white p-3 rounded-lg text-center';
+          toast.textContent = 'You are already using Chrome! Look for "Install app" in the Chrome menu.';
+          document.body.appendChild(toast);
+          setTimeout(() => toast.remove(), 5000);
+        }
+      });
     });
     
-    // Auto hide tip after 10 seconds
-    setTimeout(() => {
-      if (document.body.contains(tip)) {
-        tip.remove();
-      }
-    }, 10000);
-    
-  }, 5000); // 5 second delay to ensure page is fully loaded
+    // Add notification bubble
+    if (!document.getElementById('android-install-tip')) {
+      const tip = document.createElement('div');
+      tip.id = 'android-install-tip';
+      tip.className = 'fixed bottom-12 right-4 bg-gray-900 text-white px-3 py-2 rounded-lg shadow-lg text-sm max-w-[200px] z-40';
+      tip.innerHTML = 'Install this app for offline access <i class="fas fa-arrow-down ml-1"></i>';
+      document.body.appendChild(tip);
+      
+      // Auto remove after 8 seconds
+      setTimeout(() => {
+        if (document.body.contains(tip)) {
+          tip.remove();
+        }
+      }, 8000);
+    }
+  }
+  
+  // Fix 3: Listen for beforeinstallprompt more aggressively
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    console.log('Android: beforeinstallprompt event fired');
+    window.deferredPrompt = e;
+    showAndroidInstallButton();
+  });
+  
+  // Run our fixes
+  registerServiceWorkerDirectly();
+  
+  // Check for installability periodically
+  setInterval(function() {
+    // Only run checks if we haven't successfully shown the install button
+    if (!document.getElementById('android-install-btn') || 
+        document.getElementById('android-install-btn').style.display === 'none') {
+      registerServiceWorkerDirectly();
+    }
+  }, 30000); // Every 30 seconds
+  
+  // Add a direct install button after a short delay anyway
+  setTimeout(showAndroidInstallButton, 3000);
 })();

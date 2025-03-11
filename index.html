@@ -708,37 +708,97 @@
     </script>
 
 <script>
-    // Reliable service worker registration
-    if ('serviceWorker' in navigator) {
-      // Delay registration to ensure page is fully loaded
-      window.addEventListener('load', function() {
-        // Register with explicit scope
-        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-          .then(function(registration) {
-            console.log('Service Worker registered successfully with scope:', registration.scope);
+    // Android-specific service worker fix
+    (function fixServiceWorkerRegistration() {
+      const isAndroid = /android/i.test(navigator.userAgent);
+      
+      if (!isAndroid) return;
+      
+      console.log('Android: Applying special service worker registration fix');
+      
+      // Try registering with multiple approaches to maximize success chance
+      function attemptServiceWorkerRegistration() {
+        if (!('serviceWorker' in navigator)) {
+          console.log('Android: Service workers not supported in this browser');
+          return Promise.reject('Service workers not supported');
+        }
+        
+        // Method 1: Default registration
+        return navigator.serviceWorker.register('/service-worker.js')
+          .catch(function(error) {
+            console.log('Android: First registration method failed, trying method 2', error);
             
-            // Check if service worker is active
-            if (registration.active) {
-              console.log('Service Worker is active!');
+            // Method 2: With scope
+            return navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+          })
+          .catch(function(error) {
+            console.log('Android: Second registration method failed, trying method 3', error);
+            
+            // Method 3: With relative path
+            return navigator.serviceWorker.register('./service-worker.js');
+          })
+          .catch(function(error) {
+            console.log('Android: Third registration method failed, trying method 4', error);
+            
+            // Method 4: With relative path and scope
+            return navigator.serviceWorker.register('./service-worker.js', { scope: './' });
+          })
+          .then(function(registration) {
+            console.log('Android: Service worker registered successfully', registration);
+            
+            // Check for updates
+            registration.update();
+            
+            // Return registration for chaining
+            return registration;
+          })
+          .catch(function(finalError) {
+            console.error('Android: All service worker registration methods failed', finalError);
+            return null;
+          });
+      }
+      
+      // Wait until page is fully loaded
+      window.addEventListener('load', function() {
+        // Delay slightly to ensure other scripts have initialized
+        setTimeout(function() {
+          attemptServiceWorkerRegistration()
+            .then(function(registration) {
+              if (!registration) return;
               
-              // Force a refresh of the PWA installability check
-              if (window.pwaInstall && typeof window.pwaInstall.checkAndroidInstallability === 'function') {
-                setTimeout(() => {
-                  window.pwaInstall.checkAndroidInstallability();
-                }, 2000);
+              console.log('Android: Registration successful, waiting for activation');
+              
+              // Wait for activation if needed
+              if (registration.installing) {
+                registration.installing.addEventListener('statechange', function() {
+                  if (this.state === 'activated') {
+                    console.log('Android: Service worker now activated!');
+                  }
+                });
               }
+            });
+        }, 1000);
+      });
+      
+      // Set up periodic checks to ensure service worker is registered and active
+      setInterval(function() {
+        navigator.serviceWorker.getRegistration()
+          .then(function(registration) {
+            if (!registration) {
+              console.log('Android: No service worker registration found, attempting registration');
+              return attemptServiceWorkerRegistration();
+            } else if (registration.active) {
+              console.log('Android: Service worker is active');
             } else {
-              console.log('Service Worker registered but not yet active');
+              console.log('Android: Service worker registered but not active yet');
             }
           })
           .catch(function(error) {
-            console.error('Service Worker registration failed:', error);
+            console.error('Android: Error checking service worker status', error);
           });
-      });
-    } else {
-      console.error('Service Workers not supported in this browser');
-    }
-  </script>
+      }, 60000); // Check every minute
+    })();
+    </script>
 
     
     <!-- Load core modules -->
