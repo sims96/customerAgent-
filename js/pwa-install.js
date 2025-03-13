@@ -600,7 +600,7 @@
       
       banner.innerHTML = `
         <div class="mini-banner-content">
-          <img src="./logo.jpg" alt="LeSims" class="mini-banner-icon">
+          <img src="./logo.png" alt="LeSims" class="mini-banner-icon">
           <div class="mini-banner-text">
             <div class="mini-banner-title">LeSims Dashboard</div>
             <div class="mini-banner-subtitle">Add this app to your home screen</div>
