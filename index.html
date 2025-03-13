@@ -724,6 +724,81 @@
   </script>
 
 
+<script>
+    // Fix for Android installation issues
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Prevent Chrome from automatically showing the prompt
+      e.preventDefault();
+      // Stash the event so it can be triggered later
+      window.deferredPromptEvent = e;
+      console.log('Install prompt event captured and stored!');
+      
+      // Notify the pwaInstall module if it exists
+      if (window.pwaInstall) {
+        window.pwaInstall.deferredPrompt = e;
+        window.pwaInstall.isInstallable = true;
+        
+        if (window.pwaInstall.isAndroid) {
+          window.pwaInstall.showAndroidMiniBanner();
+        }
+        
+        window.pwaInstall.showInstallButton();
+        console.log('Install button should now be visible');
+      }
+    });
+    
+    // Listen for app installed event
+    window.addEventListener('appinstalled', (event) => {
+      console.log('App successfully installed!');
+      
+      // Notify the pwaInstall module if it exists
+      if (window.pwaInstall) {
+        window.pwaInstall.handleAppInstalled(event);
+      }
+      
+      // Record the installation in localStorage to help with detection
+      try {
+        localStorage.setItem('pwaInstalled', 'true');
+        localStorage.setItem('pwaInstalledTimestamp', Date.now());
+      } catch (e) {
+        console.error('Could not save installation state to localStorage');
+      }
+    });
+    
+    // Check if the app is already installed on startup
+    document.addEventListener('DOMContentLoaded', () => {
+      // Check if running in standalone mode
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                          window.navigator.standalone === true;
+      
+      if (isStandalone) {
+        console.log('Application is running in standalone/installed mode');
+        
+        // Handle as installed app if pwaInstall module exists
+        if (window.pwaInstall) {
+          window.pwaInstall.isInstallable = false;
+          
+          // Hide the install button if it exists
+          const installBtn = document.getElementById('pwa-install-btn');
+          if (installBtn) {
+            installBtn.style.display = 'none';
+          }
+        }
+      } else {
+        console.log('Application is running in browser mode');
+        
+        // Try to make the install button more reliable
+        setTimeout(() => {
+          if (window.pwaInstall && window.pwaInstall.isAndroid && !window.pwaInstall.deferredPrompt) {
+            // Force show the install button on Android
+            window.pwaInstall.showInstallButton();
+          }
+        }, 5000);
+      }
+    });
+  </script>
+
+
     
     <!-- Load core modules -->
     <script src="js/api.js"></script>   

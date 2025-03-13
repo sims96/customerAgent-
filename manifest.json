@@ -7,11 +7,8 @@
   "background_color": "#0f1117",
   "theme_color": "#9370DB",
   "orientation": "any",
-  "id": "complexe-lesims-dashboard-pwa",
-  "categories": ["business", "productivity"],
-  "launch_handler": {
-    "client_mode": ["navigate-existing", "auto"]
-  },
+  "categories": ["business", "productivity", "utilities"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "./icons/icon-72x72.png",
@@ -72,24 +69,7 @@
     {
       "src": "./screenshots/mobile.png", 
       "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow"
-    }
-  ],
-  "related_applications": [
-    {
-      "platform": "webapp",
-      "url": "https://restaurant-ai-worker.simondomfabrice.workers.dev/manifest.json"
-    }
-  ],
-  "prefer_related_applications": false,
-  "shortcuts": [
-    {
-      "name": "Active Conversations",
-      "short_name": "Conversations",
-      "description": "View active conversations",
-      "url": "/index.html",
-      "icons": [{ "src": "./icons/icon-96x96.png", "sizes": "96x96" }]
+      "type": "image/png"
     }
   ]
 }
