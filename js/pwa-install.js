@@ -15,7 +15,8 @@
       attemptCount: 0,
       lastAttemptTime: 0,
       modalShown: false,
-      bannerShown: false
+      bannerShown: false,
+      installPromptShown: false
     },
     
     // Initialize PWA install functionality
@@ -27,7 +28,8 @@
       this.isAndroid = /Android/.test(navigator.userAgent);
       window.logToConsole(`Device detection - iOS: ${this.isIOS}, Android: ${this.isAndroid}`);
       
-      // Set up event listeners for install prompt (non-iOS)
+      // CRITICAL: Listen for the beforeinstallprompt event
+      // This is the key event for PWA installation on Android
       window.addEventListener('beforeinstallprompt', this.handleInstallPrompt.bind(this));
       
       // Check if already installed
@@ -50,27 +52,17 @@
         this.isInstallable = true;
         window.logToConsole('App is running in browser mode and may be installable');
         
-        // Show install button automatically for iOS and Android
-        if (this.isIOS || this.isAndroid) {
-          setTimeout(() => {
-            this.showInstallButton();
-            window.logToConsole(`Showing install button for ${this.isIOS ? 'iOS' : 'Android'} device`);
-            
-            // For Android, try to trigger the beforeinstallprompt manually
-            if (this.isAndroid && !this.deferredPrompt) {
-              window.logToConsole('Attempting to manually trigger beforeinstallprompt...');
-              // We'll dispatch an artificial mousemove event to potentially trigger Chrome's install banner
-              document.dispatchEvent(new MouseEvent('mousemove'));
-              document.dispatchEvent(new MouseEvent('scroll'));
-            }
-          }, 2000);
-        }
+        // Show install button with delay to allow beforeinstallprompt to fire
+        setTimeout(() => {
+          this.showInstallButton();
+          window.logToConsole(`Showing install button for ${this.isIOS ? 'iOS' : 'Android'} device`);
+        }, 3000); // Increased delay to give more time for Chrome to decide
       }
       
       window.logToConsole('PWA installation module initialized');
     },
     
-    // Handle install prompt event
+    // Handle install prompt event - THIS IS CRITICAL FOR ANDROID
     handleInstallPrompt(event) {
       // Prevent the default browser install prompt
       event.preventDefault();
@@ -83,13 +75,14 @@
       
       // Activate the mini banner for Android
       if (this.isAndroid) {
-        this.showAndroidMiniBanner();
+        // Show mini banner with slight delay
+        setTimeout(() => {
+          this.showAndroidMiniBanner();
+        }, 1000);
       }
       
-      // Show the install button for non-iOS devices
-      if (!this.isIOS) {
-        this.showInstallButton();
-      }
+      // Show the install button
+      this.showInstallButton();
     },
     
     // Handle app installed event
@@ -111,6 +104,7 @@
       
       this.isInstallable = false;
       this.deferredPrompt = null;
+      this.installState.installPromptShown = false;
       
       // Show a notification
       if (window.notificationSystem && typeof window.notificationSystem.notify === 'function') {
@@ -596,7 +590,7 @@
       
       const banner = document.createElement('div');
       banner.id = 'android-mini-banner';
-      banner.className = 'android-mini-banner hidden';
+      banner.className = 'android-mini-banner';
       
       banner.innerHTML = `
         <div class="mini-banner-content">
@@ -616,7 +610,13 @@
       
       // Add event listeners
       document.getElementById('mini-banner-install').addEventListener('click', () => {
-        this.tryDirectInstall();
+        if (this.deferredPrompt) {
+          // If we have a prompt, use it directly
+          this.installApp();
+        } else {
+          // Otherwise try direct install methods
+          this.tryDirectInstall();
+        }
         this.hideAndroidMiniBanner();
       });
       
@@ -631,11 +631,9 @@
       
       const banner = document.getElementById('android-mini-banner');
       if (banner) {
-        banner.classList.remove('hidden');
-        setTimeout(() => {
-          banner.classList.add('visible');
-          this.installState.bannerShown = true;
-        }, 100);
+        banner.classList.add('visible');
+        this.installState.bannerShown = true;
+        window.logToConsole('Android mini-banner shown');
       }
     },
     
@@ -684,37 +682,31 @@
         if (modal) {
           modal.classList.add('visible');
         }
-      } else if (this.isAndroid) {
-        window.logToConsole('Android install button clicked');
+      } else {
+        window.logToConsole('Install button clicked');
         
-        // Show feedback on the button
-        const installBtn = document.getElementById('pwa-install-btn');
-        if (installBtn) {
-          installBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Installing...';
-          installBtn.disabled = true;
-          
-          // Reset after a delay
-          setTimeout(() => {
-            if (installBtn) {
-              installBtn.innerHTML = '<i class="fas fa-download mr-2"></i><span>Install App</span>';
-              installBtn.disabled = false;
-            }
-          }, 3000);
-        }
-        
-        // Check if we already have a deferred prompt
+        // Critical: Check if we have a stored prompt
         if (this.deferredPrompt) {
           window.logToConsole('Using stored beforeinstallprompt event');
+          // Show visual feedback on the button
+          const installBtn = document.getElementById('pwa-install-btn');
+          if (installBtn) {
+            installBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Installing...';
+          }
+          
+          // Use the captured prompt
           this.installApp();
         } else {
-          window.logToConsole('No stored beforeinstallprompt event, trying advanced methods');
+          window.logToConsole('No stored beforeinstallprompt event, trying alternative methods');
           
-          // Show the install modal with Chrome-style UI
-          this.showManualInstructions();
+          // For Android, show the install modal with manual instructions
+          if (this.isAndroid) {
+            this.showManualInstructions();
+          } else {
+            // For desktop, try other installation methods
+            this.tryDirectInstall();
+          }
         }
-      } else {
-        // Regular PWA installation for desktop
-        this.installApp();
       }
     },
     
@@ -731,6 +723,7 @@
       const modal = document.getElementById('android-install-modal');
       if (modal) {
         modal.classList.add('visible');
+        window.logToConsole('Showing Android installation modal');
       }
     },
     
@@ -742,70 +735,39 @@
       
       window.logToConsole(`Direct install attempt #${this.installState.attemptCount}`);
       
-      // If we've tried multiple times, go straight to instructions
+      // If we've tried multiple times, show manual instructions
       if (this.installState.attemptCount > 2) {
         window.logToConsole('Multiple install attempts made, showing manual instructions');
         this.showManualInstructions();
         return;
       }
       
-      window.logToConsole('Attempting direct installation with Web App Install API');
-      
-      // Check if we have a captured prompt
-      if (this.deferredPrompt) {
-        window.logToConsole('Using captured beforeinstallprompt event');
-        this.installApp();
-        return;
-      }
-      
-      // Try using the navigator.installation API if available (newer Chrome versions)
-      if (typeof navigator.installation !== 'undefined') {
-        window.logToConsole('Using navigator.installation API');
-        navigator.installation.getInfo().then(installedApp => {
-          if (!installedApp) {
-            navigator.installation.install().then(() => {
-              window.logToConsole('App installed successfully using installation API');
-            }).catch(err => {
-              window.logToConsole('Installation API error: ' + err.message);
-              this.showManualInstructions();
-            });
+      // Use navigator.getInstalledRelatedApps() if available (newer browsers)
+      if (navigator.getInstalledRelatedApps) {
+        window.logToConsole('Checking installed related apps');
+        navigator.getInstalledRelatedApps().then(relatedApps => {
+          if (relatedApps.length > 0) {
+            window.logToConsole('App is already installed as related app');
+            // App is already installed
+            this.handleAppInstalled();
           } else {
-            window.logToConsole('App is already installed');
+            window.logToConsole('No related apps installed, showing manual instructions');
+            // Show manual instructions since app isn't installed
+            this.showManualInstructions();
           }
         }).catch(err => {
-          window.logToConsole('Installation API getInfo error: ' + err.message);
+          window.logToConsole('Error checking related apps: ' + err.message);
           this.showManualInstructions();
         });
         return;
       }
       
-      // Use manifest-based install as a last resort
-      if (document.querySelector('link[rel="manifest"]')) {
-        window.logToConsole('Triggering manifest-based install');
-        
-        // Force a refresh of the manifest
-        const manifestUrl = document.querySelector('link[rel="manifest"]').href;
-        fetch(manifestUrl + '?refresh=' + Date.now()).then(() => {
-          window.logToConsole('Manifest refreshed, installation may trigger');
-        }).catch(err => {
-          window.logToConsole('Error refreshing manifest: ' + err.message);
-        });
-        
-        // Trigger user actions that might prompt installation
-        document.dispatchEvent(new MouseEvent('mousemove'));
-        document.dispatchEvent(new MouseEvent('scroll'));
-        
-        // Show manual instructions after a delay if no installation was triggered
-        setTimeout(() => {
-          this.showManualInstructions();
-        }, 2000);
-      } else {
-        window.logToConsole('No manifest found, showing manual instructions');
-        this.showManualInstructions();
-      }
+      // If all else fails, show manual instructions
+      window.logToConsole('No automatic installation methods available, showing manual instructions');
+      this.showManualInstructions();
     },
     
-    // Install the app
+    // Install the app using the deferredPrompt
     async installApp() {
       if (!this.deferredPrompt) {
         window.logToConsole('Cannot install: No install prompt available', true);
@@ -817,7 +779,14 @@
         return;
       }
       
-      window.logToConsole('User initiated app installation with captured prompt');
+      // Prevent multiple prompts
+      if (this.installState.installPromptShown) {
+        window.logToConsole('Install prompt already shown, not showing again');
+        return;
+      }
+      
+      this.installState.installPromptShown = true;
+      window.logToConsole('Triggering app installation with captured prompt');
       
       try {
         // Show the install prompt
@@ -844,25 +813,30 @@
             }
           }
           
-          // Hide the button after a successful installation
-          setTimeout(() => {
-            this.hideInstallButton();
-          }, 2000);
-          
         } else {
           window.logToConsole('User dismissed the install prompt');
           
-          // Keep the button visible in case they want to install later
-          setTimeout(() => {
-            if (this.isInstallable) {
-              this.showInstallButton();
-            }
-          }, 5000);
+          // Reset installation state
+          this.installState.installPromptShown = false;
+          
+          // Update button text
+          const installBtn = document.getElementById('pwa-install-btn');
+          if (installBtn) {
+            installBtn.innerHTML = '<i class="fas fa-download mr-2"></i><span>Install App</span>';
+          }
+          
+          // Show manual instructions as fallback
+          if (this.isAndroid) {
+            this.showManualInstructions();
+          }
         }
       } catch (error) {
         window.logToConsole(`Error during installation: ${error.message}`, true);
         
-        // For Android, try direct install if the prompt failed
+        // Reset installation state
+        this.installState.installPromptShown = false;
+        
+        // For Android, try alternative methods
         if (this.isAndroid) {
           this.tryDirectInstall();
         }
@@ -872,16 +846,27 @@
       }
     },
     
-    // Check if the app is already installed
-    checkInstallationStatus() {
-      // Check if the app is already installed using the display-mode media query
-      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        window.logToConsole('App is now running in standalone mode!');
-        this.handleAppInstalled();
-        return true;
-      }
+    // Explicitly try to trigger the beforeinstallprompt event
+    triggerInstallPrompt() {
+      window.logToConsole('Attempting to trigger beforeinstallprompt event');
       
-      return false;
+      // Dispatch several user events that might trigger the beforeinstallprompt
+      document.dispatchEvent(new MouseEvent('mousedown'));
+      document.dispatchEvent(new MouseEvent('mouseup'));
+      document.dispatchEvent(new MouseEvent('click'));
+      document.dispatchEvent(new TouchEvent('touchstart'));
+      document.dispatchEvent(new TouchEvent('touchend'));
+      
+      // Also try to interact with the manifest
+      const link = document.querySelector('link[rel="manifest"]');
+      if (link) {
+        const manifestUrl = link.href;
+        fetch(manifestUrl + '?refresh=' + Date.now()).then(() => {
+          window.logToConsole('Manifest refreshed, may trigger installation prompt');
+        }).catch(err => {
+          window.logToConsole('Error refreshing manifest: ' + err.message);
+        });
+      }
     }
   };
   
@@ -889,6 +874,21 @@
   document.addEventListener('DOMContentLoaded', function() {
     if ('serviceWorker' in navigator) {
       window.pwaInstall.initialize();
+      
+      // Additional attempts to trigger the beforeinstallprompt event
+      setTimeout(() => {
+        if (!window.pwaInstall.deferredPrompt) {
+          window.logToConsole('No beforeinstallprompt event after initialization, trying to trigger');
+          window.pwaInstall.triggerInstallPrompt();
+        }
+      }, 5000);
+      
+      // Check again after user interaction
+      document.addEventListener('click', () => {
+        if (!window.pwaInstall.deferredPrompt && !window.pwaInstall.installState.installPromptShown) {
+          window.pwaInstall.triggerInstallPrompt();
+        }
+      }, { once: true });
     } else {
       window.logToConsole('Service workers not supported - PWA functionality not available', true);
     }
