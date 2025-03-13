@@ -1,16 +1,37 @@
-// service-worker.js - Enhanced notification handler for Complexe LeSims Dashboard
+// service-worker.js - Enhanced for PWA functionality and notification handler for Complexe LeSims Dashboard
 
 // Cache name for offline functionality
-const CACHE_NAME = 'lesims-dashboard-cache-v1';
+const CACHE_NAME = 'lesims-dashboard-cache-v2';
 
 // Assets to cache for offline functionality
 const CACHE_ASSETS = [
   './',
   './index.html',
   './logo.jpg',
+  './manifest.json',
+  './dashboard.js',
+  './js/api.js',
+  './js/ui.js',
+  './js/notification-system.js',
+  './js/mobile-chat.js',
+  './js/pwa-install.js',
   './notification-sounds/new-customer.mp3',
   './notification-sounds/order-confirmed.mp3',
-  './notification-sounds/help-needed.mp3'
+  './notification-sounds/help-needed.mp3',
+  // Icons
+  './icons/icon-48x48.png',
+  './icons/icon-72x72.png',
+  './icons/icon-96x96.png',
+  './icons/icon-128x128.png',
+  './icons/icon-144x144.png',
+  './icons/icon-152x152.png',
+  './icons/icon-192x192.png',
+  './icons/icon-384x384.png',
+  './icons/icon-512x512.png',
+  './icons/apple-icon-180x180.png',
+  // External resources
+  'https://cdn.tailwindcss.com',
+  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
 ];
 
 // Enhanced credential handling with validation
@@ -121,7 +142,7 @@ self.addEventListener('push', event => {
       {
         body: data.body || 'You have a new notification',
         icon: './logo.jpg',
-        badge: './logo.jpg',
+        badge: './icons/icon-72x72.png',
         tag: data.tag || 'default',
         data: data,
         renotify: true,
@@ -249,6 +270,16 @@ self.addEventListener('message', event => {
       console.log('[Service Worker] Received invalid credentials response');
     }
   }
+  else if (event.data.type === 'HEALTH_CHECK') {
+    // Respond to health check to confirm service worker is active
+    if (event.source && event.source.postMessage) {
+      event.source.postMessage({
+        type: 'HEALTH_CHECK_RESPONSE',
+        timestamp: Date.now(),
+        originalTimestamp: event.data.timestamp
+      });
+    }
+  }
 });
 
 // Notification click event
@@ -293,7 +324,7 @@ self.addEventListener('fetch', event => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
   
-  // Network-first strategy for API requests
+  // Handle API requests with network-first strategy
   if (event.request.url.includes('/api/')) {
     event.respondWith(
       fetch(event.request)
@@ -305,7 +336,7 @@ self.addEventListener('fetch', event => {
     return;
   }
   
-  // Cache-first strategy for static assets
+  // Handle all other requests with cache-first strategy
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -454,7 +485,7 @@ async function checkForNotifications() {
           {
             body: notification.body || '',
             icon: './logo.jpg',
-            badge: './logo.jpg',
+            badge: './icons/icon-72x72.png',
             tag: notification.id || 'default',
             data: notification,
             vibrate: [100, 50, 100],
