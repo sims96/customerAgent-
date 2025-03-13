@@ -3,9 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Complexe LeSims - WhatsApp Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <meta name="theme-color" content="#9370DB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,16 +12,9 @@
     <meta name="msapplication-TileColor" content="#9370DB">
     <meta name="msapplication-tap-highlight" content="no">
     <meta name="format-detection" content="telephone=no">
-<link rel="manifest" href="./manifest.json" crossorigin="use-credentials">
-
-<!-- Add splash screen images for iOS -->
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-2048-2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-1668-2388.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-1536-2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-1125-2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-1242-2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-828-1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
-<link rel="apple-touch-startup-image" href="./icons/apple-splash-1242-2208.png" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+    <title>Complexe LeSims - WhatsApp Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Custom gradient colors from logo */
         :root {
@@ -707,109 +697,15 @@
             window.logToConsole(`Dashboard initialized with agent ID: ${dashboardState.agentId}`);
         });
     </script>
-
-<script>
-    // Register the service worker for PWA functionality
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./service-worker.js')
-          .then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
-          })
-          .catch(function(error) {
-            console.error('Service Worker registration failed:', error);
-          });
-      });
-    }
-  </script>
-
-
-<script>
-    // Fix for Android installation issues
-    window.addEventListener('beforeinstallprompt', (e) => {
-      // Prevent Chrome from automatically showing the prompt
-      e.preventDefault();
-      // Stash the event so it can be triggered later
-      window.deferredPromptEvent = e;
-      console.log('Install prompt event captured and stored!');
-      
-      // Notify the pwaInstall module if it exists
-      if (window.pwaInstall) {
-        window.pwaInstall.deferredPrompt = e;
-        window.pwaInstall.isInstallable = true;
-        
-        if (window.pwaInstall.isAndroid) {
-          window.pwaInstall.showAndroidMiniBanner();
-        }
-        
-        window.pwaInstall.showInstallButton();
-        console.log('Install button should now be visible');
-      }
-    });
-    
-    // Listen for app installed event
-    window.addEventListener('appinstalled', (event) => {
-      console.log('App successfully installed!');
-      
-      // Notify the pwaInstall module if it exists
-      if (window.pwaInstall) {
-        window.pwaInstall.handleAppInstalled(event);
-      }
-      
-      // Record the installation in localStorage to help with detection
-      try {
-        localStorage.setItem('pwaInstalled', 'true');
-        localStorage.setItem('pwaInstalledTimestamp', Date.now());
-      } catch (e) {
-        console.error('Could not save installation state to localStorage');
-      }
-    });
-    
-    // Check if the app is already installed on startup
-    document.addEventListener('DOMContentLoaded', () => {
-      // Check if running in standalone mode
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                          window.navigator.standalone === true;
-      
-      if (isStandalone) {
-        console.log('Application is running in standalone/installed mode');
-        
-        // Handle as installed app if pwaInstall module exists
-        if (window.pwaInstall) {
-          window.pwaInstall.isInstallable = false;
-          
-          // Hide the install button if it exists
-          const installBtn = document.getElementById('pwa-install-btn');
-          if (installBtn) {
-            installBtn.style.display = 'none';
-          }
-        }
-      } else {
-        console.log('Application is running in browser mode');
-        
-        // Try to make the install button more reliable
-        setTimeout(() => {
-          if (window.pwaInstall && window.pwaInstall.isAndroid && !window.pwaInstall.deferredPrompt) {
-            // Force show the install button on Android
-            window.pwaInstall.showInstallButton();
-          }
-        }, 5000);
-      }
-    });
-  </script>
-
-
     
     <!-- Load core modules -->
     <script src="js/api.js"></script>   
     <script src="js/ui.js"></script>
     <script src="js/dashboard.js"></script>
-    <script src="js/pwa-install.js"></script>
+    <script src="./service-worker.js"></script>
     <script src="js/notification-system.js"></script>
     <script src="js/mobile-chat.js"></script> 
-    <script src="./service-worker.js"></script>
     <script src="js/pwa-install.js"></script>
 
-    
 </body>
 </html>

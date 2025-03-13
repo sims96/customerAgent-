@@ -1,123 +1,22 @@
-// service-worker.js - Enhanced for PWA functionality and notification handler for Complexe LeSims Dashboard
+// service-worker.js - Enhanced notification handler for Complexe LeSims Dashboard
 
 // Cache name for offline functionality
-const CACHE_NAME = 'lesims-dashboard-cache-v2';
+const CACHE_NAME = 'lesims-dashboard-cache-v1';
 
 // Assets to cache for offline functionality
 const CACHE_ASSETS = [
   './',
   './index.html',
   './logo.jpg',
-  './manifest.json',
-  './dashboard.js',
-  './js/api.js',
-  './js/ui.js',
-  './js/notification-system.js',
-  './js/mobile-chat.js',
-  './js/pwa-install.js',
   './notification-sounds/new-customer.mp3',
   './notification-sounds/order-confirmed.mp3',
-  './notification-sounds/help-needed.mp3',
-  // Icons
-  './icons/icon-72x72.png',
-  './icons/icon-96x96.png',
-  './icons/icon-128x128.png',
-  './icons/icon-144x144.png',
-  './icons/icon-152x152.png',
-  './icons/icon-192x192.png',
-  './icons/icon-384x384.png',
-  './icons/icon-512x512.png',
-  './icons/apple-icon-180x180.png',
-  // External resources
-  'https://cdn.tailwindcss.com',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css'
+  './notification-sounds/help-needed.mp3'
 ];
 
 // Enhanced credential handling with validation
 let apiCredentials = null;
 let lastCredentialCheck = 0;
 let notificationCheckInterval = null;
-
-// Fetch event for network/cache strategy
-self.addEventListener('fetch', event => {
-  // Special handling for manifest requests to ensure they're always fresh
-  if (event.request.url.includes('manifest.json')) {
-    event.respondWith(
-      fetch(event.request).then(response => {
-        // Clone the response to cache it and return it
-        const clonedResponse = response.clone();
-        
-        // Cache the latest manifest
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, response);
-        });
-        
-        // Add the cache-busting headers
-        const headers = new Headers(clonedResponse.headers);
-        headers.append('Cache-Control', 'no-cache, no-store, must-revalidate');
-        headers.append('Pragma', 'no-cache');
-        headers.append('Expires', '0');
-        
-        // Create a new response with the original body but updated headers
-        return new Response(clonedResponse.body, {
-          status: clonedResponse.status,
-          statusText: clonedResponse.statusText,
-          headers: headers
-        });
-      }).catch(() => {
-        // Fallback to cache if network fails
-        return caches.match(event.request);
-      })
-    );
-    return;
-  }
-  
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
-  
-  // Handle API requests with network-first strategy
-  if (event.request.url.includes('/api/')) {
-    event.respondWith(
-      fetch(event.request)
-        .catch(() => {
-          // Fall back to cache for offline support
-          return caches.match(event.request);
-        })
-    );
-    return;
-  }
-  
-  // Handle all other requests with cache-first strategy
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Cache hit - return the response
-        if (response) {
-          return response;
-        }
-        
-        // Not in cache - fetch from network
-        return fetch(event.request)
-          .then(response => {
-            // Check if valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // Clone the response
-            const responseToCache = response.clone();
-            
-            // Add response to cache
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-              
-            return response;
-          });
-      })
-  );
-});
 
 // Install event - cache assets
 self.addEventListener('install', event => {
@@ -182,36 +81,6 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Add this listener to detect when the PWA is installed
-self.addEventListener('appinstalled', event => {
-  console.log('[Service Worker] App was installed event received');
-  cleanupAfterInstallation();
-});
-
-// Function to clean up after installation
-function cleanupAfterInstallation() {
-  // Clear any cached credentials that might cause issues
-  self.clients.matchAll().then(clients => {
-    clients.forEach(client => {
-      client.postMessage({
-        type: 'INSTALLATION_COMPLETED',
-        timestamp: Date.now()
-      });
-    });
-  });
-  
-  // Clean up any stale caches
-  caches.keys().then(cacheNames => {
-    return Promise.all(
-      cacheNames.map(cacheName => {
-        if (cacheName !== CACHE_NAME) {
-          return caches.delete(cacheName);
-        }
-      })
-    );
-  });
-}
-
 // Periodic background sync for checking new notifications
 self.addEventListener('periodicsync', event => {
   if (event.tag === 'check-notifications') {
@@ -252,7 +121,7 @@ self.addEventListener('push', event => {
       {
         body: data.body || 'You have a new notification',
         icon: './logo.jpg',
-        badge: './icons/icon-72x72.png',
+        badge: './logo.jpg',
         tag: data.tag || 'default',
         data: data,
         renotify: true,
@@ -380,16 +249,6 @@ self.addEventListener('message', event => {
       console.log('[Service Worker] Received invalid credentials response');
     }
   }
-  else if (event.data.type === 'HEALTH_CHECK') {
-    // Respond to health check to confirm service worker is active
-    if (event.source && event.source.postMessage) {
-      event.source.postMessage({
-        type: 'HEALTH_CHECK_RESPONSE',
-        timestamp: Date.now(),
-        originalTimestamp: event.data.timestamp
-      });
-    }
-  }
 });
 
 // Notification click event
@@ -425,6 +284,55 @@ self.addEventListener('notificationclick', event => {
         if (clients.openWindow) {
           return clients.openWindow('./index.html');
         }
+      })
+  );
+});
+
+// Fetch event for network/cache strategy
+self.addEventListener('fetch', event => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+  
+  // Network-first strategy for API requests
+  if (event.request.url.includes('/api/')) {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          // Fall back to cache for offline support
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Cache-first strategy for static assets
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // Cache hit - return the response
+        if (response) {
+          return response;
+        }
+        
+        // Not in cache - fetch from network
+        return fetch(event.request)
+          .then(response => {
+            // Check if valid response
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            
+            // Clone the response
+            const responseToCache = response.clone();
+            
+            // Add response to cache
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+              
+            return response;
+          });
       })
   );
 });
@@ -546,7 +454,7 @@ async function checkForNotifications() {
           {
             body: notification.body || '',
             icon: './logo.jpg',
-            badge: './icons/icon-72x72.png',
+            badge: './logo.jpg',
             tag: notification.id || 'default',
             data: notification,
             vibrate: [100, 50, 100],
