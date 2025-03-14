@@ -1,7 +1,7 @@
 // service-worker.js - Enhanced for PWA functionality and notification handler for Complexe LeSims Dashboard
 
-// Cache name for offline functionality
-const CACHE_NAME = 'lesims-dashboard-cache-v2';
+// Cache name with version for easy updates
+const CACHE_NAME = 'lesims-dashboard-cache-v3';
 
 // Assets to cache for offline functionality
 const CACHE_ASSETS = [
@@ -9,9 +9,9 @@ const CACHE_ASSETS = [
   './index.html',
   './logo.jpg',
   './manifest.json',
-  './dashboard.js',
   './js/api.js',
   './js/ui.js',
+  './js/dashboard.js',
   './js/notification-system.js',
   './js/mobile-chat.js',
   './js/pwa-install.js',
@@ -42,13 +42,24 @@ let notificationCheckInterval = null;
 // Install event - cache assets
 self.addEventListener('install', event => {
   console.log('[Service Worker] Installing Service Worker');
-  self.skipWaiting(); // Ensure service worker activates immediately
   
+  // Use skipWaiting to ensure the service worker activates immediately
+  self.skipWaiting();
+  
+  // Cache important assets
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
         console.log('[Service Worker] Caching app shell and assets');
-        return cache.addAll(CACHE_ASSETS);
+        return cache.addAll(CACHE_ASSETS)
+          .then(() => {
+            console.log('[Service Worker] All required assets successfully cached');
+          })
+          .catch(error => {
+            console.error('[Service Worker] Failed to cache all assets:', error);
+            // Continue even if some assets fail to cache
+            return Promise.resolve();
+          });
       })
   );
 });
@@ -57,9 +68,10 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   console.log('[Service Worker] Activating Service Worker');
   
+  // Use waitUntil to ensure activation completes before fetch events
   event.waitUntil(
     Promise.all([
-      // Original cache cleanup
+      // Clean up old cache versions
       caches.keys().then(keyList => {
         return Promise.all(keyList.map(key => {
           if (key !== CACHE_NAME) {
@@ -86,18 +98,23 @@ self.addEventListener('activate', event => {
         }
       })
     ])
-    .then(() => self.clients.claim())
     .then(() => {
-      // Additional notification after claiming clients
-      console.log('[Service Worker] Claimed clients, checking connection status');
+      // This ensures the service worker takes control immediately
+      return self.clients.claim();
+    })
+    .then(() => {
+      // Notify clients that the service worker is active
       return self.clients.matchAll();
     })
     .then(clients => {
-      if (clients.length > 0) {
-        console.log('[Service Worker] Connected to', clients.length, 'client(s)');
-      } else {
-        console.log('[Service Worker] No connected clients found');
-      }
+      console.log('[Service Worker] Successfully activated and claimed', clients.length, 'client(s)');
+      
+      // Notify all connected clients that service worker is ready
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'SERVICE_WORKER_READY'
+        });
+      });
     })
   );
 });
@@ -156,6 +173,17 @@ self.addEventListener('push', event => {
 // Enhanced message event handler
 self.addEventListener('message', event => {
   console.log('[Service Worker] Message received:', event.data.type);
+  
+  // Special handler for service worker testing
+  if (event.data.type === 'PING_SERVICE_WORKER') {
+    if (event.source && event.source.postMessage) {
+      event.source.postMessage({
+        type: 'SERVICE_WORKER_PONG',
+        timestamp: Date.now()
+      });
+    }
+    return;
+  }
   
   if (event.data.type === 'STORE_CREDENTIALS') {
     // Validate credentials before storing
@@ -319,10 +347,14 @@ self.addEventListener('notificationclick', event => {
   );
 });
 
-// Fetch event for network/cache strategy
+// Fetch event for network/cache strategy - CRITICAL for PWA INSTALLATION!
 self.addEventListener('fetch', event => {
-  // Skip non-GET requests
-  if (event.request.method !== 'GET') return;
+  // Skip non-GET requests and browser extension requests
+  if (event.request.method !== 'GET' || 
+      event.request.url.startsWith('chrome-extension://') ||
+      event.request.url.includes('extension/')) {
+    return;
+  }
   
   // Handle API requests with network-first strategy
   if (event.request.url.includes('/api/')) {
