@@ -37,6 +37,25 @@
         this.isInstallable = true;
         window.logToConsole('App is running in browser mode and may be installable');
         
+        // For Android devices, try to manually trigger the beforeinstallprompt event
+        if (this.isAndroid) {
+          // These actions can sometimes trigger the beforeinstallprompt event in Chrome
+          window.logToConsole('Attempting to trigger beforeinstallprompt on Android');
+          // Create artificial user interactions that might trigger the prompt
+          document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+          document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+          document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+          window.dispatchEvent(new Event('resize'));
+          
+          // Check if manifest is properly linked
+          const manifestLink = document.querySelector('link[rel="manifest"]');
+          if (manifestLink) {
+            window.logToConsole('Manifest found: ' + manifestLink.href);
+          } else {
+            window.logToConsole('Warning: No manifest link found in document', true);
+          }
+        }
+        
         // Show install button automatically for mobile devices after a short delay
         if (this.isIOS || this.isAndroid) {
           setTimeout(() => {
@@ -412,43 +431,90 @@
       modal.id = 'install-modal';
       modal.className = 'install-modal';
       
-      modal.innerHTML = `
-        <div class="install-content">
-          <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
-          <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
-          
-          <div class="install-preview">
-            <div class="app-preview">
-              <img src="./logo.jpg" alt="LeSims" class="app-icon">
-              <div class="app-name">LeSims Dashboard</div>
-            </div>
-            <button id="modal-install-btn" class="install-btn">
-              Install
-            </button>
-          </div>
-          
-          <div class="separator">
-            <span>OR</span>
-          </div>
-          
-          <div class="manual-steps">
-            <p class="text-sm text-gray-300 mb-2">Install from browser menu:</p>
-            <div class="manual-step">
-              <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
-              <div>Tap the <strong>menu button</strong> in your browser</div>
+      // Create Android-specific content with more detailed instructions
+      if (this.isAndroid) {
+        modal.innerHTML = `
+          <div class="install-content">
+            <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
+            <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
+            
+            <div class="install-preview">
+              <div class="app-preview">
+                <img src="./logo.jpg" alt="LeSims" class="app-icon">
+                <div class="app-name">LeSims Dashboard</div>
+              </div>
+              <button id="modal-install-btn" class="install-btn">
+                Install
+              </button>
             </div>
             
-            <div class="manual-step">
-              <div class="step-icon"><i class="fas fa-download"></i></div>
-              <div>Select <strong>Install app</strong> from the menu</div>
+            <div class="separator">
+              <span>OR</span>
             </div>
+            
+            <div class="manual-steps">
+              <p class="text-sm text-gray-300 mb-2">Install from Chrome menu:</p>
+              <div class="manual-step">
+                <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
+                <div>Tap the <strong>three dots</strong> menu in Chrome</div>
+              </div>
+              
+              <div class="manual-step">
+                <div class="step-icon"><i class="fas fa-download"></i></div>
+                <div>Select <strong>Install app</strong> or <strong>Add to Home screen</strong></div>
+              </div>
+              
+              <div class="manual-step">
+                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
+                <div>Tap <strong>Install</strong> on the confirmation prompt</div>
+              </div>
+            </div>
+            
+            <button id="install-modal-close" class="modal-close">
+              Close
+            </button>
           </div>
-          
-          <button id="install-modal-close" class="modal-close">
-            Close
-          </button>
-        </div>
-      `;
+        `;
+      } else {
+        // Generic content for other browsers
+        modal.innerHTML = `
+          <div class="install-content">
+            <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
+            <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
+            
+            <div class="install-preview">
+              <div class="app-preview">
+                <img src="./logo.jpg" alt="LeSims" class="app-icon">
+                <div class="app-name">LeSims Dashboard</div>
+              </div>
+              <button id="modal-install-btn" class="install-btn">
+                Install
+              </button>
+            </div>
+            
+            <div class="separator">
+              <span>OR</span>
+            </div>
+            
+            <div class="manual-steps">
+              <p class="text-sm text-gray-300 mb-2">Install from browser menu:</p>
+              <div class="manual-step">
+                <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
+                <div>Open the <strong>menu button</strong> in your browser</div>
+              </div>
+              
+              <div class="manual-step">
+                <div class="step-icon"><i class="fas fa-download"></i></div>
+                <div>Select <strong>Install app</strong> from the menu</div>
+              </div>
+            </div>
+            
+            <button id="install-modal-close" class="modal-close">
+              Close
+            </button>
+          </div>
+        `;
+      }
       
       document.body.appendChild(modal);
       
@@ -458,7 +524,25 @@
       });
       
       document.getElementById('modal-install-btn').addEventListener('click', () => {
-        this.installApp();
+        // For Android, try our enhanced installation methods
+        if (this.isAndroid) {
+          this.triggerAndroidInstall();
+          
+          // Visual feedback on the button
+          const installBtn = document.getElementById('modal-install-btn');
+          if (installBtn) {
+            installBtn.innerHTML = 'Installing...';
+            installBtn.disabled = true;
+            
+            setTimeout(() => {
+              installBtn.innerHTML = 'Install';
+              installBtn.disabled = false;
+            }, 3000);
+          }
+        } else {
+          // For other platforms, just try the standard install method
+          this.installApp();
+        }
       });
     },
     
@@ -510,14 +594,71 @@
         
         // Attempt to install the app
         if (this.deferredPrompt) {
+          window.logToConsole('Using stored beforeinstallprompt event');
           this.installApp();
         } else {
-          // If we don't have a deferred prompt, show the install modal with instructions
-          const modal = document.getElementById('install-modal');
-          if (modal) {
-            modal.classList.add('visible');
+          window.logToConsole('No installation prompt available, trying alternative methods');
+          
+          // For Android, try to trigger the installation in different ways
+          if (this.isAndroid) {
+            this.triggerAndroidInstall();
+          } else {
+            // For other platforms, show the install modal with instructions
+            const modal = document.getElementById('install-modal');
+            if (modal) {
+              modal.classList.add('visible');
+            }
           }
         }
+      }
+    },
+    
+    // Try alternative methods to trigger installation on Android
+    triggerAndroidInstall() {
+      window.logToConsole('Attempting alternative Android installation methods');
+      
+      // 1. Try to use navigator.install if available
+      if (navigator.getInstalledRelatedApps) {
+        window.logToConsole('Using getInstalledRelatedApps API');
+        navigator.getInstalledRelatedApps().then(relatedApps => {
+          window.logToConsole('Related apps check completed');
+          
+          // Continue with browser-specific fallbacks
+          this.showAndroidInstallModal();
+        }).catch(err => {
+          window.logToConsole('getInstalledRelatedApps error: ' + err.message);
+          this.showAndroidInstallModal();
+        });
+      } else {
+        // 2. Try to artificially trigger the beforeinstallprompt event
+        window.logToConsole('Trying to trigger beforeinstallprompt event');
+        
+        // These actions could potentially trigger the beforeinstallprompt in some browsers
+        window.dispatchEvent(new Event('beforeinstallprompt'));
+        document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        
+        // Reload the manifest to potentially trigger installation criteria
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        if (manifestLink) {
+          const manifestUrl = manifestLink.href;
+          fetch(manifestUrl + '?refresh=' + Date.now())
+            .then(() => window.logToConsole('Manifest refreshed'))
+            .catch(err => window.logToConsole('Error refreshing manifest: ' + err.message));
+        }
+        
+        // Show the install modal after a short delay
+        setTimeout(() => {
+          this.showAndroidInstallModal();
+        }, 500);
+      }
+    },
+    
+    // Show the Android-specific install modal
+    showAndroidInstallModal() {
+      const modal = document.getElementById('install-modal');
+      if (modal) {
+        window.logToConsole('Showing Android install instructions modal');
+        modal.classList.add('visible');
       }
     },
     
@@ -526,10 +667,15 @@
       if (!this.deferredPrompt) {
         window.logToConsole('Cannot install: No install prompt available', true);
         
-        // Show manual installation instructions if no prompt is available
-        const modal = document.getElementById('install-modal');
-        if (modal) {
-          modal.classList.add('visible');
+        if (this.isAndroid) {
+          // For Android, try alternative installation methods
+          this.triggerAndroidInstall();
+        } else {
+          // For other platforms, show manual installation instructions
+          const modal = document.getElementById('install-modal');
+          if (modal) {
+            modal.classList.add('visible');
+          }
         }
         return;
       }
