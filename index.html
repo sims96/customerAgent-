@@ -390,6 +390,39 @@
             }
         }
     </style>
+
+<script async>
+    if ('serviceWorker' in navigator) {
+      // Register immediately without waiting for full page load
+      navigator.serviceWorker.register('./service-worker.js', {
+        // Expanding scope to control the entire origin
+        scope: '/'
+      }).then(function(registration) {
+        console.log('Service Worker registered successfully with scope:', registration.scope);
+        
+        // Dispatch event for other scripts to know service worker is available
+        window.dispatchEvent(new CustomEvent('serviceWorkerRegistered', {
+          detail: { registration }
+        }));
+      }).catch(function(error) {
+        console.error('Service Worker registration failed:', error);
+        
+        // Notify the application that fallback mechanisms should be used
+        window.dispatchEvent(new CustomEvent('serviceWorkerFailed', {
+          detail: { error }
+        }));
+      });
+      
+      // Listen for service worker updates
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        console.log('Service Worker controller changed - page will reload for new version');
+        // Optionally reload for new service worker version
+        // window.location.reload();
+      });
+    }
+  </script>
+
+
 </head>
 <body>
     <div class="min-h-screen flex flex-col box-sizing-border-box">
@@ -453,6 +486,9 @@
                             <i class="fas fa-bell mr-1"></i> Test Notification
                         </button>
                     </div>
+                    <div id="sw-status" class="text-xs px-3 py-1 rounded-full bg-gray-800 text-gray-400">
+                        Service Worker: Initializing...
+                      </div>
                 </div>
             </div>
 
@@ -705,22 +741,6 @@
             window.logToConsole(`Dashboard initialized with agent ID: ${dashboardState.agentId}`);
         });
     </script>
-
-<script>
-    // Register the service worker for PWA functionality
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./service-worker.js')
-          .then(function(registration) {
-            console.log('Service Worker registered with scope:', registration.scope);
-          })
-          .catch(function(error) {
-            console.error('Service Worker registration failed:', error);
-          });
-      });
-    }
-  </script>
-
 
     
     <!-- Load core modules -->

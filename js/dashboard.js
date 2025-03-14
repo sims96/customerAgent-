@@ -7,10 +7,14 @@
     // Properties
     fallbackPollingInterval: null,
     serviceWorkerFailureDetected: false,
+    offlineMode: false,
     
     // Initialize dashboard
     initialize: function() {
       window.logToConsole('Initializing dashboard controller');
+      
+      // Add service worker status display if not already present
+      this.addServiceWorkerStatus();
       
       // Set up automatic reconnection from saved credentials
       this.setupAutoReconnect();
@@ -24,10 +28,32 @@
       // Set up fallback notification polling
       this.setupFallbackPolling();
       
-      // Listen for service worker failures
-      this.setupServiceWorkerListener();
+      // Listen for service worker events
+      this.setupServiceWorkerListeners();
+      
+      // Monitor online/offline status
+      this.setupConnectivityMonitor();
       
       window.logToConsole('Dashboard controller initialized');
+    },
+    
+    // Add service worker status display to the UI
+    addServiceWorkerStatus: function() {
+      if (!document.getElementById('sw-status')) {
+        // Find status indicator element
+        const statusIndicator = document.getElementById('status-indicator');
+        
+        if (statusIndicator) {
+          // Create service worker status element
+          const swStatus = document.createElement('div');
+          swStatus.id = 'sw-status';
+          swStatus.className = 'text-xs px-3 py-1 rounded-full bg-gray-800 text-gray-400 ml-2';
+          swStatus.textContent = 'Service Worker: Initializing...';
+          
+          // Insert after status indicator
+          statusIndicator.parentNode.insertBefore(swStatus, statusIndicator.nextSibling);
+        }
+      }
     },
     
     // Set up auto-reconnect from saved credentials
@@ -125,6 +151,12 @@
             window.logToConsole('Keyboard shortcut: Not connected, cannot poll notifications');
           }
         }
+
+        // Alt+O = Toggle offline mode (for testing)
+        if (event.altKey && event.key === 'o') {
+          window.logToConsole('Keyboard shortcut: Alt+O = Toggle offline simulation');
+          this.toggleOfflineSimulation();
+        }
       });
     },
     
@@ -148,8 +180,8 @@
       
       // Set up new polling interval - check every 20 seconds
       this.fallbackPollingInterval = setInterval(async () => {
-        // Skip if not connected
-        if (!window.dashboardState || !window.dashboardState.connected) {
+        // Skip if not connected or in offline mode
+        if (!window.dashboardState || !window.dashboardState.connected || this.offlineMode) {
           return;
         }
         
@@ -198,34 +230,200 @@
       return this.fallbackPollingInterval;
     },
     
-    // Set up listener for service worker status
-    setupServiceWorkerListener: function() {
-      // Listen for service worker errors
-      window.addEventListener('serviceWorkerFailed', (event) => {
-        window.logToConsole('Service worker failure detected, fallback polling will be used', true);
-        this.serviceWorkerFailureDetected = true;
-        
-        // Make sure fallback polling is active
-        if (!this.fallbackPollingInterval) {
-          this.setupFallbackPolling();
-        }
+    // Set up connectivity monitoring
+    setupConnectivityMonitor: function() {
+      // Listen for online events
+      window.addEventListener('online', () => {
+        window.logToConsole('Browser reports online status');
+        this.updateOfflineStatus(false);
       });
       
-      // Check service worker registration immediately
+      // Listen for offline events
+      window.addEventListener('offline', () => {
+        window.logToConsole('Browser reports offline status');
+        this.updateOfflineStatus(true);
+      });
+
+      // Initialize with current status
+      this.updateOfflineStatus(!navigator.onLine);
+    },
+
+    // Update offline status
+    updateOfflineStatus: function(isOffline) {
+      this.offlineMode = isOffline;
+      
+      // Update UI to reflect offline status
+      if (isOffline) {
+        // Update status indicator
+        if (document.getElementById('status-indicator')) {
+          const statusIndicator = document.getElementById('status-indicator');
+          statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-yellow-500 status-pulse"></span> Offline';
+          statusIndicator.classList.remove('bg-green-900', 'bg-red-900');
+          statusIndicator.classList.add('bg-yellow-900');
+        }
+        
+        // Show offline banner if it doesn't exist
+        if (!document.getElementById('offline-banner')) {
+          const banner = document.createElement('div');
+          banner.id = 'offline-banner';
+          banner.className = 'fixed top-0 left-0 right-0 bg-yellow-600 text-white py-1 px-4 text-center z-50';
+          banner.innerHTML = '<i class="fas fa-wifi-slash mr-2"></i> You are currently offline. Limited functionality available.';
+          document.body.prepend(banner);
+        }
+      } else {
+        // Remove offline banner if it exists
+        const banner = document.getElementById('offline-banner');
+        if (banner) {
+          banner.remove();
+        }
+        
+        // Restore status indicator if we're connected
+        if (window.dashboardState && window.dashboardState.connected) {
+          if (document.getElementById('status-indicator')) {
+            const statusIndicator = document.getElementById('status-indicator');
+            statusIndicator.innerHTML = '<span class="h-2 w-2 mr-2 rounded-full bg-green-500 status-pulse"></span> Connected';
+            statusIndicator.classList.remove('bg-yellow-900', 'bg-red-900');
+            statusIndicator.classList.add('bg-green-900');
+          }
+        }
+        
+        // Refresh data if connected
+        if (window.dashboardState && window.dashboardState.connected) {
+          setTimeout(() => {
+            if (window.ui && typeof window.ui.refreshConversationList === 'function') {
+              window.ui.refreshConversationList();
+            }
+          }, 1000);
+        }
+      }
+      
+      // Notify other components about connectivity change
+      window.dispatchEvent(new CustomEvent('dashboard:connectivityChanged', {
+        detail: {
+          online: !isOffline
+        }
+      }));
+    },
+    
+    // Toggle offline simulation (for testing)
+    toggleOfflineSimulation: function() {
+      // This doesn't actually change network status, just simulates UI changes
+      this.updateOfflineStatus(!this.offlineMode);
+      window.logToConsole(`Offline simulation: ${this.offlineMode ? 'Enabled' : 'Disabled'}`);
+    },
+    
+    // Set up listener for service worker status
+    setupServiceWorkerListeners: function() {
+      // Update service worker status display
+      this.updateServiceWorkerStatus('initializing');
+      
       if ('serviceWorker' in navigator) {
+        // Listen for service worker registration success
+        window.addEventListener('serviceWorkerRegistered', (event) => {
+          window.logToConsole('Service worker registered successfully');
+          this.serviceWorkerFailureDetected = false;
+          this.updateServiceWorkerStatus('active');
+        });
+        
+        // Listen for service worker registration failure
+        window.addEventListener('serviceWorkerFailed', (event) => {
+          window.logToConsole('Service worker registration failed', true);
+          this.serviceWorkerFailureDetected = true;
+          this.updateServiceWorkerStatus('failed');
+          
+          // Make sure fallback polling is active
+          if (!this.fallbackPollingInterval) {
+            this.setupFallbackPolling();
+          }
+        });
+        
+        // Listen for messages from service worker
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data) {
+            // Handle connectivity messages
+            if (event.data.type === 'CONNECTIVITY_CHANGE') {
+              window.logToConsole(`Service Worker reports ${event.data.status} status`);
+              this.updateOfflineStatus(event.data.status === 'offline');
+            }
+            
+            // Handle service worker ready message
+            if (event.data.type === 'SERVICE_WORKER_READY') {
+              window.logToConsole('Service Worker ready message received');
+              this.updateServiceWorkerStatus('active', event.data.authenticated);
+            }
+          }
+        });
+        
+        // Check service worker registration immediately
         navigator.serviceWorker.getRegistration().then(registration => {
           if (!registration || !registration.active) {
             window.logToConsole('No active service worker detected, using fallback polling', true);
             this.serviceWorkerFailureDetected = true;
+            this.updateServiceWorkerStatus('missing');
+          } else {
+            window.logToConsole('Active service worker detected');
+            this.serviceWorkerFailureDetected = false;
+            
+            // Ping service worker to check status
+            if (navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage({
+                type: 'PING_SERVICE_WORKER',
+                timestamp: Date.now()
+              });
+            }
           }
         }).catch(error => {
           window.logToConsole('Error checking service worker: ' + error.message, true);
           this.serviceWorkerFailureDetected = true;
+          this.updateServiceWorkerStatus('error');
         });
       } else {
         window.logToConsole('Service workers not supported in this browser, using fallback polling', true);
         this.serviceWorkerFailureDetected = true;
+        this.updateServiceWorkerStatus('unsupported');
       }
+    },
+    
+    // Update service worker status display
+    updateServiceWorkerStatus: function(status, isAuthenticated) {
+      const swStatus = document.getElementById('sw-status');
+      if (!swStatus) return;
+      
+      let text = 'Service Worker: ';
+      let className = 'text-xs px-3 py-1 rounded-full bg-gray-800 ';
+      
+      switch (status) {
+        case 'initializing':
+          text += 'Initializing...';
+          className += 'text-gray-400';
+          break;
+        case 'active':
+          text += isAuthenticated ? 'Active (Notifications Ready)' : 'Active (Offline Ready)';
+          className += 'text-green-500';
+          break;
+        case 'failed':
+          text += 'Registration Failed';
+          className += 'text-red-500';
+          break;
+        case 'missing':
+          text += 'Not Registered';
+          className += 'text-yellow-500';
+          break;
+        case 'error':
+          text += 'Error';
+          className += 'text-red-500';
+          break;
+        case 'unsupported':
+          text += 'Not Supported';
+          className += 'text-red-500';
+          break;
+        default:
+          text += 'Unknown';
+          className += 'text-gray-400';
+      }
+      
+      swStatus.textContent = text;
+      swStatus.className = className;
     },
     
     // Check overall system health
@@ -252,6 +450,7 @@
         }).catch(error => {
           window.logToConsole('Service worker error: ' + error.message, true);
           this.serviceWorkerFailureDetected = true;
+          this.updateServiceWorkerStatus('error');
         });
       }
       
@@ -277,6 +476,9 @@
         window.logToConsole('Fallback polling not active but should be, restarting', true);
         this.setupFallbackPolling();
       }
+      
+      // Check connectivity status
+      this.updateOfflineStatus(!navigator.onLine);
     },
     
     // Manual notification check
@@ -296,6 +498,20 @@
       }
     },
     
+    // Handle login event - sync credentials to service worker
+    handleLogin: function(apiUrl, apiKey) {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        window.logToConsole('Sending credentials to service worker after login');
+        
+        navigator.serviceWorker.controller.postMessage({
+          type: 'STORE_CREDENTIALS',
+          apiUrl: apiUrl,
+          apiKey: apiKey,
+          timestamp: Date.now()
+        });
+      }
+    },
+    
     // Handle disconnect - clean up resources
     handleDisconnect: function() {
       window.logToConsole('Handling dashboard disconnect');
@@ -305,6 +521,16 @@
         clearInterval(this.fallbackPollingInterval);
         this.fallbackPollingInterval = null;
       }
+      
+      // Update service worker status
+      this.updateServiceWorkerStatus('active', false);
+    }
+  };
+  
+  // Expose handle login function
+  window.handleDashboardLogin = function(apiUrl, apiKey) {
+    if (dashboard && typeof dashboard.handleLogin === 'function') {
+      dashboard.handleLogin(apiUrl, apiKey);
     }
   };
   

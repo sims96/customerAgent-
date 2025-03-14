@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complexe LeSims - Offline Mode</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        :root {
+            --gradient-start: #FF69B4; /* Pink */
+            --gradient-end: #9370DB;   /* Purple */
+        }
+
+        body {
+            background-color: #0f1117;
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .offline-container {
+            max-width: 500px;
+            padding: 2rem;
+            background: rgba(25, 29, 43, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .brand-gradient {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .logo {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 1rem;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .offline-icon {
+            font-size: 4rem;
+            margin: 1.5rem 0;
+            color: #9370DB;
+        }
+
+        .message {
+            margin-bottom: 2rem;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(147, 112, 219, 0.6);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+            border: none;
+            box-shadow: 0 4px 14px rgba(147, 112, 219, 0.4);
+        }
+
+        .feature-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .feature-item {
+            background: rgba(35, 39, 53, 0.5);
+            border-radius: 8px;
+            padding: 1rem;
+            width: calc(50% - 1rem);
+            box-sizing: border-box;
+            display: flex;
+            align-items: center;
+        }
+
+        .feature-icon {
+            margin-right: 0.75rem;
+            font-size: 1.25rem;
+            color: #9370DB;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.6;
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.6;
+            }
+        }
+
+        .connection-status {
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #ffc107;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 600px) {
+            .offline-container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+
+            .feature-item {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-container">
+        <div class="header">
+            <img src="./logo.jpg" alt="LeSims Logo" class="logo">
+            <h1 class="title">Complexe LeSims Dashboard</h1>
+        </div>
+
+        <i class="fas fa-wifi-slash offline-icon"></i>
+
+        <div class="message">
+            <h2>You're currently offline</h2>
+            <p>The dashboard is available in limited mode. You can still access the login screen and previously cached content.</p>
+        </div>
+
+        <div class="feature-list">
+            <div class="feature-item">
+                <i class="fas fa-sign-in-alt feature-icon"></i>
+                <span>Login Form Available</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-mobile-alt feature-icon"></i>
+                <span>Install as PWA</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-cloud-download-alt feature-icon"></i>
+                <span>Cached Resources</span>
+            </div>
+            <div class="feature-item">
+                <i class="fas fa-shield-alt feature-icon"></i>
+                <span>Secure Environment</span>
+            </div>
+        </div>
+
+        <a href="./index.html" class="btn btn-primary">Try Again</a>
+
+        <div class="connection-status">
+            <span class="status-dot"></span>
+            <span>Waiting for connection...</span>
+        </div>
+    </div>
+
+    <script>
+        // Check connection status periodically
+        function checkConnection() {
+            if (navigator.onLine) {
+                window.location.reload();
+            }
+        }
+
+        // Check connection every 5 seconds
+        setInterval(checkConnection, 5000);
+
+        // Also check when online event is triggered
+        window.addEventListener('online', function() {
+            window.location.reload();
+        });
+    </script>
+</body>
+</html>
