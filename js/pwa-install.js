@@ -1,4 +1,4 @@
-// simplified-pwa-install.js - Streamlined PWA installation handler
+// pwa-install.js - Simplified PWA installation handler with improved Android support
 
 (function() {
   'use strict';
@@ -7,12 +7,19 @@
   window.pwaInstall = {
     // Properties
     deferredPrompt: null,
-    isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
-    isAndroid: /Android/.test(navigator.userAgent),
+    isInstallable: false,
+    installButtonVisible: false,
+    isIOS: false,
+    isAndroid: false,
     
     // Initialize PWA install functionality
     initialize() {
       window.logToConsole('Initializing PWA installation module');
+      
+      // Detect device types
+      this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      this.isAndroid = /Android/.test(navigator.userAgent);
+      window.logToConsole(`Device detection - iOS: ${this.isIOS}, Android: ${this.isAndroid}`);
       
       // Set up event listeners for install prompt
       window.addEventListener('beforeinstallprompt', this.handleInstallPrompt.bind(this));
@@ -24,12 +31,17 @@
       // Check if already installed
       if (window.matchMedia('(display-mode: standalone)').matches || 
           window.navigator.standalone === true) {
+        this.isInstallable = false;
         window.logToConsole('App is already installed and running in standalone mode');
-        this.hideInstallButton();
       } else {
-        // Show install button after a slight delay for iOS
-        if (this.isIOS) {
-          setTimeout(() => this.showInstallButton(), 1500);
+        this.isInstallable = true;
+        window.logToConsole('App is running in browser mode and may be installable');
+        
+        // Show install button automatically for mobile devices after a short delay
+        if (this.isIOS || this.isAndroid) {
+          setTimeout(() => {
+            this.showInstallButton();
+          }, 2000);
         }
       }
       
@@ -43,19 +55,23 @@
       
       // Store the event for later use
       this.deferredPrompt = event;
+      this.isInstallable = true;
       
-      window.logToConsole('Install prompt event captured');
+      window.logToConsole('Install prompt event captured! App is installable!');
       
       // Show the install button
       this.showInstallButton();
     },
     
     // Handle app installed event
-    handleAppInstalled() {
-      window.logToConsole('App was successfully installed');
+    handleAppInstalled(event) {
+      window.logToConsole('App was successfully installed!');
       
       // Hide the install button
       this.hideInstallButton();
+      
+      this.isInstallable = false;
+      this.deferredPrompt = null;
       
       // Show a notification
       if (window.notificationSystem && typeof window.notificationSystem.notify === 'function') {
@@ -201,13 +217,144 @@
             font-weight: bold;
             cursor: pointer;
           }
+          
+          /* Generic install modal (used for Android) */
+          .install-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+          }
+          
+          .install-modal.visible {
+            opacity: 1;
+            visibility: visible;
+          }
+          
+          .install-content {
+            background-color: #191d2b;
+            border-radius: 12px;
+            padding: 20px;
+            max-width: 340px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            text-align: center;
+          }
+          
+          .install-preview {
+            background-color: rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+          }
+          
+          .app-preview {
+            display: flex;
+            align-items: center;
+          }
+          
+          .app-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            margin-right: 12px;
+          }
+          
+          .app-name {
+            font-weight: bold;
+            color: white;
+          }
+          
+          .install-btn {
+            background-color: #8ab4f8;
+            color: #202124;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 16px;
+            cursor: pointer;
+          }
+          
+          .separator {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 20px 0;
+            color: rgba(255, 255, 255, 0.5);
+          }
+          
+          .separator::before,
+          .separator::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+          }
+          
+          .separator span {
+            padding: 0 10px;
+            font-size: 12px;
+          }
+          
+          .manual-steps {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+          }
+          
+          .manual-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            text-align: left;
+          }
+          
+          .step-icon {
+            font-size: 1.5rem;
+            width: 30px;
+            text-align: center;
+          }
+          
+          .modal-close {
+            margin-top: 15px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #FF69B4, #9370DB);
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+          }
+          
+          /* Success animation */
+          .pwa-install-btn.success {
+            background: linear-gradient(135deg, #4CAF50, #2E7D32);
+          }
         `;
         document.head.appendChild(styleElement);
       }
       
-      // Create iOS installation instructions modal if on iOS
+      // Create appropriate install modals
       if (this.isIOS) {
         this.createIOSInstallModal();
+      } else {
+        this.createGenericInstallModal();
       }
     },
     
@@ -255,14 +402,76 @@
       });
     },
     
+    // Create generic installation modal (used for Android)
+    createGenericInstallModal() {
+      if (document.getElementById('install-modal')) {
+        return;
+      }
+      
+      const modal = document.createElement('div');
+      modal.id = 'install-modal';
+      modal.className = 'install-modal';
+      
+      modal.innerHTML = `
+        <div class="install-content">
+          <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
+          <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
+          
+          <div class="install-preview">
+            <div class="app-preview">
+              <img src="./logo.jpg" alt="LeSims" class="app-icon">
+              <div class="app-name">LeSims Dashboard</div>
+            </div>
+            <button id="modal-install-btn" class="install-btn">
+              Install
+            </button>
+          </div>
+          
+          <div class="separator">
+            <span>OR</span>
+          </div>
+          
+          <div class="manual-steps">
+            <p class="text-sm text-gray-300 mb-2">Install from browser menu:</p>
+            <div class="manual-step">
+              <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
+              <div>Tap the <strong>menu button</strong> in your browser</div>
+            </div>
+            
+            <div class="manual-step">
+              <div class="step-icon"><i class="fas fa-download"></i></div>
+              <div>Select <strong>Install app</strong> from the menu</div>
+            </div>
+          </div>
+          
+          <button id="install-modal-close" class="modal-close">
+            Close
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // Add event listeners
+      document.getElementById('install-modal-close').addEventListener('click', () => {
+        modal.classList.remove('visible');
+      });
+      
+      document.getElementById('modal-install-btn').addEventListener('click', () => {
+        this.installApp();
+      });
+    },
+    
     // Show the install button
     showInstallButton() {
       const installBtn = document.getElementById('pwa-install-btn');
-      if (installBtn) {
+      if (installBtn && !this.installButtonVisible) {
         installBtn.classList.remove('hidden');
         setTimeout(() => {
           installBtn.classList.add('visible');
         }, 100);
+        this.installButtonVisible = true;
+        window.logToConsole('Install button is now visible');
       }
     },
     
@@ -274,6 +483,8 @@
         setTimeout(() => {
           installBtn.classList.add('hidden');
         }, 500);
+        this.installButtonVisible = false;
+        window.logToConsole('Install button is now hidden');
       }
     },
     
@@ -286,19 +497,44 @@
           modal.classList.add('visible');
         }
       } else {
-        // For Android/Desktop, trigger the installation prompt
-        this.installApp();
+        window.logToConsole('Install button clicked');
+        
+        // Show visual feedback
+        const installBtn = document.getElementById('pwa-install-btn');
+        if (installBtn) {
+          installBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Installing...';
+          setTimeout(() => {
+            installBtn.innerHTML = '<i class="fas fa-download mr-2"></i><span>Install App</span>';
+          }, 3000);
+        }
+        
+        // Attempt to install the app
+        if (this.deferredPrompt) {
+          this.installApp();
+        } else {
+          // If we don't have a deferred prompt, show the install modal with instructions
+          const modal = document.getElementById('install-modal');
+          if (modal) {
+            modal.classList.add('visible');
+          }
+        }
       }
     },
     
     // Install the app
     async installApp() {
       if (!this.deferredPrompt) {
-        window.logToConsole('Cannot install: No install prompt available');
+        window.logToConsole('Cannot install: No install prompt available', true);
+        
+        // Show manual installation instructions if no prompt is available
+        const modal = document.getElementById('install-modal');
+        if (modal) {
+          modal.classList.add('visible');
+        }
         return;
       }
       
-      window.logToConsole('User initiated app installation');
+      window.logToConsole('User initiated app installation with captured prompt');
       
       try {
         // Show the install prompt
@@ -308,28 +544,50 @@
         const choiceResult = await this.deferredPrompt.userChoice;
         
         if (choiceResult.outcome === 'accepted') {
-          window.logToConsole('User accepted the install prompt');
+          window.logToConsole('User accepted the install prompt!');
           
-          // Update button to show success state
+          // Show success feedback
           const installBtn = document.getElementById('pwa-install-btn');
           if (installBtn) {
             installBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Installing...';
+            installBtn.classList.add('success');
           }
           
-          // Hide the button after a successful installation
+          // Hide any modal that might be open
+          const modal = document.getElementById('install-modal');
+          if (modal) {
+            modal.classList.remove('visible');
+          }
+          
+          // Hide the button after installation
           setTimeout(() => {
             this.hideInstallButton();
           }, 2000);
-          
         } else {
           window.logToConsole('User dismissed the install prompt');
         }
       } catch (error) {
-        window.logToConsole(`Error during installation: ${error.message}`);
+        window.logToConsole(`Error during installation: ${error.message}`, true);
+        
+        // If there's an error, show the manual install modal
+        const modal = document.getElementById('install-modal');
+        if (modal) {
+          modal.classList.add('visible');
+        }
       } finally {
         // Clear the prompt reference
         this.deferredPrompt = null;
       }
+    },
+    
+    // Check if the app is already installed
+    checkInstallationStatus() {
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        window.logToConsole('App is running in standalone mode!');
+        this.handleAppInstalled();
+        return true;
+      }
+      return false;
     }
   };
   
@@ -338,7 +596,7 @@
     if ('serviceWorker' in navigator) {
       window.pwaInstall.initialize();
     } else {
-      window.logToConsole('Service workers not supported - PWA functionality not available');
+      window.logToConsole('Service workers not supported - PWA functionality not available', true);
     }
   });
 })();
