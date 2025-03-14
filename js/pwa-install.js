@@ -1,4 +1,4 @@
-// pwa-install.js - Simplified PWA installation handler with improved Android support
+// improved-pwa-install.js - Enhanced PWA installation handler with better Android support
 
 (function() {
   'use strict';
@@ -11,6 +11,13 @@
     installButtonVisible: false,
     isIOS: false,
     isAndroid: false,
+    installState: {
+      attemptCount: 0,
+      lastAttemptTime: 0,
+      modalShown: false,
+      bannerShown: false,
+      installPromptShown: false
+    },
     
     // Initialize PWA install functionality
     initialize() {
@@ -21,65 +28,127 @@
       this.isAndroid = /Android/.test(navigator.userAgent);
       window.logToConsole(`Device detection - iOS: ${this.isIOS}, Android: ${this.isAndroid}`);
       
-      // Set up event listeners for install prompt
-      window.addEventListener('beforeinstallprompt', this.handleInstallPrompt.bind(this));
+      // Check if already installed in standalone mode
+      if (window.matchMedia('(display-mode: standalone)').matches || 
+          window.navigator.standalone === true) {
+        this.isInstallable = false;
+        window.logToConsole('App is already installed and running in standalone mode');
+        return;
+      }
+      
+      this.isInstallable = true;
+      window.logToConsole('App is running in browser mode and may be installable');
+      
+      // Set up event listeners for install prompt (non-iOS)
+      this.setupInstallPromptListener();
+      
+      // Check if already installed
       window.addEventListener('appinstalled', this.handleAppInstalled.bind(this));
       
       // Create install button
       this.createInstallButton();
       
-      // Check if already installed
-      if (window.matchMedia('(display-mode: standalone)').matches || 
-          window.navigator.standalone === true) {
-        this.isInstallable = false;
-        window.logToConsole('App is already installed and running in standalone mode');
-      } else {
-        this.isInstallable = true;
-        window.logToConsole('App is running in browser mode and may be installable');
-        
-        // For Android devices, try to manually trigger the beforeinstallprompt event
-        if (this.isAndroid) {
-          // These actions can sometimes trigger the beforeinstallprompt event in Chrome
-          window.logToConsole('Attempting to trigger beforeinstallprompt on Android');
-          // Create artificial user interactions that might trigger the prompt
-          document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-          document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-          document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-          window.dispatchEvent(new Event('resize'));
-          
-          // Check if manifest is properly linked
-          const manifestLink = document.querySelector('link[rel="manifest"]');
-          if (manifestLink) {
-            window.logToConsole('Manifest found: ' + manifestLink.href);
-          } else {
-            window.logToConsole('Warning: No manifest link found in document', true);
-          }
-        }
-        
-        // Show install button automatically for mobile devices after a short delay
-        if (this.isIOS || this.isAndroid) {
-          setTimeout(() => {
-            this.showInstallButton();
-          }, 2000);
-        }
+      // Create the Android mini-banner for Android devices
+      if (this.isAndroid) {
+        this.createAndroidMiniBanner();
       }
+      
+      // Show install button automatically for iOS and Android after a slight delay
+      if (this.isIOS || this.isAndroid) {
+        setTimeout(() => {
+          this.showInstallButton();
+          window.logToConsole(`Showing install button for ${this.isIOS ? 'iOS' : 'Android'} device`);
+        }, 3000);
+      }
+      
+      // Always setup the relax checks - these will help catch the prompt in more cases
+      this.setupRelaxedPromptChecks();
       
       window.logToConsole('PWA installation module initialized');
     },
     
-    // Handle install prompt event
-    handleInstallPrompt(event) {
-      // Prevent the default browser install prompt
-      event.preventDefault();
+    // Set up the beforeinstallprompt listener in a more robust way
+    setupInstallPromptListener() {
+      // Primary listener for beforeinstallprompt
+      window.addEventListener('beforeinstallprompt', (event) => {
+        // Prevent Chrome 76+ from automatically showing the prompt
+        event.preventDefault();
+        
+        // Store the event for later use
+        this.deferredPrompt = event;
+        this.isInstallable = true;
+        
+        window.logToConsole('🎉 Install prompt event captured! App is installable!');
+        
+        // Activate the mini banner for Android
+        if (this.isAndroid) {
+          this.showAndroidMiniBanner();
+        }
+        
+        // Show the install button
+        this.showInstallButton();
+      });
       
-      // Store the event for later use
-      this.deferredPrompt = event;
-      this.isInstallable = true;
+      // Secondary listener that doesn't call preventDefault
+      // This helps with some Android browsers that need a different approach
+      window.addEventListener('beforeinstallprompt', this.secondaryPromptHandler.bind(this), 
+                             { once: true, passive: true });
+    },
+    
+    // Secondary handler that doesn't prevent default
+    secondaryPromptHandler(event) {
+      // Just capture the event without preventing default
+      // This allows the browser's native prompt to show while still giving us a reference
+      if (!this.deferredPrompt) {
+        this.deferredPrompt = event;
+        window.logToConsole('Captured install prompt event with passive listener');
+        
+        // Don't show our UI if browser is already showing its prompt
+        this.installState.installPromptShown = true;
+      }
+    },
+    
+    // Setup relaxed checks for installation availability
+    setupRelaxedPromptChecks() {
+      // Check for manifest as a hint that installation might be possible
+      const hasManifest = !!document.querySelector('link[rel="manifest"]');
       
-      window.logToConsole('Install prompt event captured! App is installable!');
+      // For Android specifically, add extra event listeners
+      if (this.isAndroid && hasManifest) {
+        // Trigger checks on user interactions that might prompt installation
+        ['click', 'scroll', 'mousemove', 'touchstart', 'keydown'].forEach(eventType => {
+          document.addEventListener(eventType, this.relaxedInstallCheck.bind(this), 
+                                  { once: true, passive: true });
+        });
+        
+        // Also check after a delay
+        setTimeout(() => this.relaxedInstallCheck(), 4000);
+        setTimeout(() => this.relaxedInstallCheck(), 10000);
+      }
+    },
+    
+    // Relaxed check for install availability
+    relaxedInstallCheck() {
+      // Skip if we already have a prompt or too many attempts
+      if (this.deferredPrompt || this.installState.attemptCount > 5) return;
       
-      // Show the install button
-      this.showInstallButton();
+      // Check for manifest presence
+      const hasManifest = !!document.querySelector('link[rel="manifest"]');
+      const hasRequiredIcons = true; // Assume true as we've included icons in the manifest
+
+      if (hasManifest && hasRequiredIcons && this.isInstallable && !this.installState.installPromptShown) {
+        window.logToConsole('Relaxed check: App appears installable, showing button');
+        this.showInstallButton();
+        
+        // For Android, try showing the custom install modal more aggressively
+        if (this.isAndroid && !this.installState.modalShown) {
+          setTimeout(() => {
+            if (!this.deferredPrompt && !this.installState.modalShown) {
+              this.showManualInstructions();
+            }
+          }, 5000);
+        }
+      }
     },
     
     // Handle app installed event
@@ -88,6 +157,16 @@
       
       // Hide the install button
       this.hideInstallButton();
+      
+      // Hide any Android-specific UI
+      if (this.isAndroid) {
+        this.hideAndroidMiniBanner();
+        
+        const modal = document.getElementById('android-install-modal');
+        if (modal) {
+          modal.classList.remove('visible');
+        }
+      }
       
       this.isInstallable = false;
       this.deferredPrompt = null;
@@ -100,6 +179,11 @@
           body: 'Complexe LeSims Dashboard is now installed on your device!'
         });
       }
+      
+      // Refresh the page to ensure PWA mode is activated
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     },
     
     // Create the install button
@@ -144,6 +228,7 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
             transition: all 0.3s ease;
             animation: pulse-attention 2s infinite;
+            z-index: 9999 !important;
           }
           
           @keyframes pulse-attention {
@@ -166,7 +251,7 @@
           }
           
           .pwa-install-btn.visible {
-            display: flex;
+            display: flex !important;
             animation: slideUp 0.5s ease forwards;
           }
           
@@ -236,9 +321,9 @@
             font-weight: bold;
             cursor: pointer;
           }
-          
-          /* Generic install modal (used for Android) */
-          .install-modal {
+
+          /* Android install modal */
+          .android-install-modal {
             position: fixed;
             top: 0;
             left: 0;
@@ -257,12 +342,12 @@
             transition: opacity 0.3s ease, visibility 0.3s ease;
           }
           
-          .install-modal.visible {
+          .android-install-modal.visible {
             opacity: 1;
             visibility: visible;
           }
           
-          .install-content {
+          .android-install-content {
             background-color: #191d2b;
             border-radius: 12px;
             padding: 20px;
@@ -272,11 +357,107 @@
             text-align: center;
           }
           
+          .android-instructions {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+          }
+          
+          .android-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            text-align: left;
+          }
+          
+          .android-icon {
+            font-size: 1.5rem;
+            width: 30px;
+            text-align: center;
+          }
+          
+          .android-install-close {
+            margin-top: 15px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #FF69B4, #9370DB);
+            border: none;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+          }
+          
+          /* Android mini banner */
+          .android-mini-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: #191d2b;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 9998;
+            padding: 8px 16px;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+          }
+          
+          .android-mini-banner.visible {
+            transform: translateY(0);
+          }
+          
+          .mini-banner-content {
+            display: flex;
+            align-items: center;
+          }
+          
+          .mini-banner-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            margin-right: 12px;
+          }
+          
+          .mini-banner-text {
+            flex: 1;
+          }
+          
+          .mini-banner-title {
+            font-weight: bold;
+            color: white;
+            font-size: 14px;
+          }
+          
+          .mini-banner-subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+          }
+          
+          .mini-banner-btn {
+            background: linear-gradient(135deg, #FF69B4, #9370DB);
+            color: white;
+            font-weight: bold;
+            border: none;
+            border-radius: 16px;
+            padding: 6px 14px;
+            margin-left: 8px;
+          }
+          
+          .mini-banner-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            padding: 4px 8px;
+            margin-left: 4px;
+          }
+          
+          /* Enhanced Android installation UI */
           .install-preview {
             background-color: rgba(255, 255, 255, 0.08);
             border-radius: 8px;
             padding: 16px;
-            margin: 15px 0;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -299,14 +480,13 @@
             color: white;
           }
           
-          .install-btn {
+          .chrome-install-btn {
             background-color: #8ab4f8;
             color: #202124;
             font-weight: bold;
             border: none;
             border-radius: 4px;
             padding: 8px 16px;
-            cursor: pointer;
           }
           
           .separator {
@@ -329,38 +509,6 @@
             font-size: 12px;
           }
           
-          .manual-steps {
-            margin: 15px 0;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-          }
-          
-          .manual-step {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.9rem;
-            text-align: left;
-          }
-          
-          .step-icon {
-            font-size: 1.5rem;
-            width: 30px;
-            text-align: center;
-          }
-          
-          .modal-close {
-            margin-top: 15px;
-            padding: 8px 16px;
-            border-radius: 20px;
-            background: linear-gradient(135deg, #FF69B4, #9370DB);
-            border: none;
-            color: white;
-            font-weight: bold;
-            cursor: pointer;
-          }
-          
           /* Success animation */
           .pwa-install-btn.success {
             background: linear-gradient(135deg, #4CAF50, #2E7D32);
@@ -369,11 +517,11 @@
         document.head.appendChild(styleElement);
       }
       
-      // Create appropriate install modals
+      // Create appropriate install modal based on device type
       if (this.isIOS) {
         this.createIOSInstallModal();
-      } else {
-        this.createGenericInstallModal();
+      } else if (this.isAndroid) {
+        this.createEnhancedAndroidInstallModal();
       }
     },
     
@@ -420,130 +568,145 @@
         modal.classList.remove('visible');
       });
     },
-    
-    // Create generic installation modal (used for Android)
-    createGenericInstallModal() {
-      if (document.getElementById('install-modal')) {
+
+    // Create enhanced Android installation instructions modal
+    createEnhancedAndroidInstallModal() {
+      if (document.getElementById('android-install-modal')) {
         return;
       }
       
       const modal = document.createElement('div');
-      modal.id = 'install-modal';
-      modal.className = 'install-modal';
+      modal.id = 'android-install-modal';
+      modal.className = 'android-install-modal';
       
-      // Create Android-specific content with more detailed instructions
-      if (this.isAndroid) {
-        modal.innerHTML = `
-          <div class="install-content">
-            <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
-            <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
-            
-            <div class="install-preview">
-              <div class="app-preview">
-                <img src="./logo.jpg" alt="LeSims" class="app-icon">
-                <div class="app-name">LeSims Dashboard</div>
-              </div>
-              <button id="modal-install-btn" class="install-btn">
-                Install
-              </button>
+      modal.innerHTML = `
+        <div class="android-install-content">
+          <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
+          <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
+          
+          <div class="install-preview mb-4">
+            <div class="app-preview">
+              <img src="./logo.jpg" alt="LeSims" class="app-icon">
+              <div class="app-name">LeSims Dashboard</div>
             </div>
-            
-            <div class="separator">
-              <span>OR</span>
-            </div>
-            
-            <div class="manual-steps">
-              <p class="text-sm text-gray-300 mb-2">Install from Chrome menu:</p>
-              <div class="manual-step">
-                <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
-                <div>Tap the <strong>three dots</strong> menu in Chrome</div>
-              </div>
-              
-              <div class="manual-step">
-                <div class="step-icon"><i class="fas fa-download"></i></div>
-                <div>Select <strong>Install app</strong> or <strong>Add to Home screen</strong></div>
-              </div>
-              
-              <div class="manual-step">
-                <div class="step-icon"><i class="fas fa-check-circle"></i></div>
-                <div>Tap <strong>Install</strong> on the confirmation prompt</div>
-              </div>
-            </div>
-            
-            <button id="install-modal-close" class="modal-close">
-              Close
+            <button id="android-chrome-install" class="chrome-install-btn">
+              Install
             </button>
           </div>
-        `;
-      } else {
-        // Generic content for other browsers
-        modal.innerHTML = `
-          <div class="install-content">
-            <h3 class="text-xl font-bold mb-3">Install LeSims Dashboard</h3>
-            <p class="text-sm text-gray-300 mb-4">Install this app on your device:</p>
-            
-            <div class="install-preview">
-              <div class="app-preview">
-                <img src="./logo.jpg" alt="LeSims" class="app-icon">
-                <div class="app-name">LeSims Dashboard</div>
-              </div>
-              <button id="modal-install-btn" class="install-btn">
-                Install
-              </button>
-            </div>
-            
-            <div class="separator">
-              <span>OR</span>
-            </div>
-            
-            <div class="manual-steps">
-              <p class="text-sm text-gray-300 mb-2">Install from browser menu:</p>
-              <div class="manual-step">
-                <div class="step-icon"><i class="fas fa-ellipsis-vertical"></i></div>
-                <div>Open the <strong>menu button</strong> in your browser</div>
-              </div>
-              
-              <div class="manual-step">
-                <div class="step-icon"><i class="fas fa-download"></i></div>
-                <div>Select <strong>Install app</strong> from the menu</div>
-              </div>
-            </div>
-            
-            <button id="install-modal-close" class="modal-close">
-              Close
-            </button>
+          
+          <div class="separator">
+            <span>OR</span>
           </div>
-        `;
-      }
+          
+          <div class="android-instructions mt-4">
+            <p class="text-sm text-gray-300 mb-2">Install from Chrome menu:</p>
+            <div class="android-step">
+              <div class="android-icon"><i class="fas fa-ellipsis-vertical"></i></div>
+              <div>Tap the <strong>menu button</strong> (three dots) in Chrome</div>
+            </div>
+            
+            <div class="android-step">
+              <div class="android-icon"><i class="fas fa-download"></i></div>
+              <div>Select <strong>Install app</strong> from the menu</div>
+            </div>
+          </div>
+          
+          <button id="android-install-close" class="android-install-close mt-4">
+            Close
+          </button>
+        </div>
+      `;
       
       document.body.appendChild(modal);
       
       // Add event listeners
-      document.getElementById('install-modal-close').addEventListener('click', () => {
+      document.getElementById('android-install-close').addEventListener('click', () => {
         modal.classList.remove('visible');
+        this.installState.modalShown = false;
       });
       
-      document.getElementById('modal-install-btn').addEventListener('click', () => {
-        // For Android, try our enhanced installation methods
-        if (this.isAndroid) {
-          this.triggerAndroidInstall();
-          
-          // Visual feedback on the button
-          const installBtn = document.getElementById('modal-install-btn');
-          if (installBtn) {
-            installBtn.innerHTML = 'Installing...';
-            installBtn.disabled = true;
-            
-            setTimeout(() => {
-              installBtn.innerHTML = 'Install';
-              installBtn.disabled = false;
-            }, 3000);
-          }
-        } else {
-          // For other platforms, just try the standard install method
-          this.installApp();
+      document.getElementById('android-chrome-install').addEventListener('click', () => {
+        // Try to trigger the installation via Chrome's UI
+        window.logToConsole('User clicked Chrome-style install button');
+        
+        // Show installing state
+        const installBtn = document.getElementById('android-chrome-install');
+        if (installBtn) {
+          installBtn.innerHTML = 'Installing...';
+          installBtn.disabled = true;
         }
+        
+        // Try to install with prompt or use direct install as fallback
+        if (this.deferredPrompt) {
+          this.installApp();
+        } else {
+          this.triggerInstallationApproaches();
+        }
+        
+        // Reset button after a delay
+        setTimeout(() => {
+          if (installBtn) {
+            installBtn.innerHTML = 'Install';
+            installBtn.disabled = false;
+          }
+        }, 3000);
       });
+    },
+    
+    // Create Android mini banner for installation
+    createAndroidMiniBanner() {
+      if (document.getElementById('android-mini-banner')) {
+        return;
+      }
+      
+      const banner = document.createElement('div');
+      banner.id = 'android-mini-banner';
+      banner.className = 'android-mini-banner';
+      
+      banner.innerHTML = `
+        <div class="mini-banner-content">
+          <img src="./logo.jpg" alt="LeSims" class="mini-banner-icon">
+          <div class="mini-banner-text">
+            <div class="mini-banner-title">LeSims Dashboard</div>
+            <div class="mini-banner-subtitle">Add this app to your home screen</div>
+          </div>
+          <button id="mini-banner-install" class="mini-banner-btn">Install</button>
+          <button id="mini-banner-close" class="mini-banner-close">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `;
+      
+      document.body.appendChild(banner);
+      
+      // Add event listeners
+      document.getElementById('mini-banner-install').addEventListener('click', () => {
+        this.triggerInstallationApproaches();
+        this.hideAndroidMiniBanner();
+      });
+      
+      document.getElementById('mini-banner-close').addEventListener('click', () => {
+        this.hideAndroidMiniBanner();
+      });
+    },
+    
+    // Show Android mini banner
+    showAndroidMiniBanner() {
+      if (this.installState.bannerShown) return;
+      
+      const banner = document.getElementById('android-mini-banner');
+      if (banner) {
+        banner.classList.add('visible');
+        this.installState.bannerShown = true;
+      }
+    },
+    
+    // Hide Android mini banner
+    hideAndroidMiniBanner() {
+      const banner = document.getElementById('android-mini-banner');
+      if (banner) {
+        banner.classList.remove('visible');
+      }
     },
     
     // Show the install button
@@ -580,107 +743,152 @@
         if (modal) {
           modal.classList.add('visible');
         }
-      } else {
-        window.logToConsole('Install button clicked');
+      } else if (this.isAndroid) {
+        window.logToConsole('Android install button clicked');
         
-        // Show visual feedback
+        // Show feedback on the button
         const installBtn = document.getElementById('pwa-install-btn');
         if (installBtn) {
           installBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Installing...';
+          installBtn.disabled = true;
+          
+          // Reset after a delay
           setTimeout(() => {
             installBtn.innerHTML = '<i class="fas fa-download mr-2"></i><span>Install App</span>';
+            installBtn.disabled = false;
           }, 3000);
         }
         
-        // Attempt to install the app
+        // Try to install with the best approach available
         if (this.deferredPrompt) {
           window.logToConsole('Using stored beforeinstallprompt event');
           this.installApp();
         } else {
-          window.logToConsole('No installation prompt available, trying alternative methods');
+          window.logToConsole('No stored beforeinstallprompt event, trying advanced methods');
           
-          // For Android, try to trigger the installation in different ways
-          if (this.isAndroid) {
-            this.triggerAndroidInstall();
-          } else {
-            // For other platforms, show the install modal with instructions
-            const modal = document.getElementById('install-modal');
-            if (modal) {
-              modal.classList.add('visible');
-            }
-          }
+          // Show the install modal with Chrome-style UI
+          this.showManualInstructions();
+          
+          // Also try triggering installation
+          this.triggerInstallationApproaches();
         }
-      }
-    },
-    
-    // Try alternative methods to trigger installation on Android
-    triggerAndroidInstall() {
-      window.logToConsole('Attempting alternative Android installation methods');
-      
-      // 1. Try to use navigator.install if available
-      if (navigator.getInstalledRelatedApps) {
-        window.logToConsole('Using getInstalledRelatedApps API');
-        navigator.getInstalledRelatedApps().then(relatedApps => {
-          window.logToConsole('Related apps check completed');
-          
-          // Continue with browser-specific fallbacks
-          this.showAndroidInstallModal();
-        }).catch(err => {
-          window.logToConsole('getInstalledRelatedApps error: ' + err.message);
-          this.showAndroidInstallModal();
-        });
       } else {
-        // 2. Try to artificially trigger the beforeinstallprompt event
-        window.logToConsole('Trying to trigger beforeinstallprompt event');
-        
-        // These actions could potentially trigger the beforeinstallprompt in some browsers
-        window.dispatchEvent(new Event('beforeinstallprompt'));
-        document.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        
-        // Reload the manifest to potentially trigger installation criteria
-        const manifestLink = document.querySelector('link[rel="manifest"]');
-        if (manifestLink) {
-          const manifestUrl = manifestLink.href;
-          fetch(manifestUrl + '?refresh=' + Date.now())
-            .then(() => window.logToConsole('Manifest refreshed'))
-            .catch(err => window.logToConsole('Error refreshing manifest: ' + err.message));
-        }
-        
-        // Show the install modal after a short delay
-        setTimeout(() => {
-          this.showAndroidInstallModal();
-        }, 500);
+        // Regular PWA installation for desktop
+        this.installApp();
       }
     },
     
-    // Show the Android-specific install modal
-    showAndroidInstallModal() {
-      const modal = document.getElementById('install-modal');
+    // Show manual installation instructions
+    showManualInstructions() {
+      // Only track as shown if not already shown
+      if (!this.installState.modalShown) {
+        this.installState.modalShown = true;
+        window.logToConsole('Showing manual installation instructions modal');
+      }
+      
+      const modal = document.getElementById('android-install-modal');
       if (modal) {
-        window.logToConsole('Showing Android install instructions modal');
         modal.classList.add('visible');
       }
     },
     
-    // Install the app
+    // New comprehensive method to try all installation approaches
+    triggerInstallationApproaches() {
+      // Track the attempt
+      this.installState.attemptCount++;
+      this.installState.lastAttemptTime = Date.now();
+      
+      window.logToConsole(`Install attempt #${this.installState.attemptCount}`);
+      
+      // If we have a deferred prompt, use it
+      if (this.deferredPrompt) {
+        window.logToConsole('Using captured beforeinstallprompt event');
+        this.installApp();
+        return;
+      }
+      
+      // Try triggering user activation events to prompt installation
+      ['touchstart', 'click'].forEach(eventName => {
+        document.dispatchEvent(new MouseEvent(eventName, {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        }));
+      });
+      
+      // Try the manifest-based approach
+      if (document.querySelector('link[rel="manifest"]')) {
+        // Force the browser to re-evaluate the manifest
+        const manifestUrl = document.querySelector('link[rel="manifest"]').href;
+        const refreshUrl = manifestUrl.includes('?') ? 
+                          `${manifestUrl}&refresh=${Date.now()}` : 
+                          `${manifestUrl}?refresh=${Date.now()}`;
+                          
+        const linkElem = document.createElement('link');
+        linkElem.rel = 'manifest';
+        linkElem.href = refreshUrl;
+        document.head.appendChild(linkElem);
+        
+        window.logToConsole('Added fresh manifest link to try triggering install');
+      }
+      
+      // Try using the navigation API as a fallback (newer browsers)
+      if (typeof navigator.installation !== 'undefined') {
+        window.logToConsole('Using navigator.installation API');
+        navigator.installation.getInfo().then(installedApp => {
+          if (!installedApp) {
+            navigator.installation.install().then(() => {
+              window.logToConsole('App installed successfully using installation API');
+              this.handleAppInstalled();
+            }).catch(err => {
+              window.logToConsole('Installation API error: ' + err.message);
+              this.showManualInstructions();
+            });
+          } else {
+            window.logToConsole('App is already installed according to navigator.installation');
+          }
+        }).catch(err => {
+          window.logToConsole('Installation API getInfo error: ' + err.message);
+        });
+      }
+      
+      // Check the installation state periodically
+      setTimeout(() => this.checkIfInstalled(), 1000);
+      setTimeout(() => this.checkIfInstalled(), 3000);
+      
+      // Show manual instructions if nothing else worked
+      setTimeout(() => {
+        if (!window.matchMedia('(display-mode: standalone)').matches && 
+            !window.navigator.standalone) {
+          this.showManualInstructions();
+        }
+      }, 1500);
+    },
+    
+    // Check if the app was installed
+    checkIfInstalled() {
+      if (window.matchMedia('(display-mode: standalone)').matches || 
+          window.navigator.standalone) {
+        window.logToConsole('App appears to be installed now!');
+        this.handleAppInstalled();
+        return true;
+      }
+      return false;
+    },
+    
+    // Install the app using the prompt
     async installApp() {
       if (!this.deferredPrompt) {
         window.logToConsole('Cannot install: No install prompt available', true);
         
+        // For Android, try alternative methods
         if (this.isAndroid) {
-          // For Android, try alternative installation methods
-          this.triggerAndroidInstall();
-        } else {
-          // For other platforms, show manual installation instructions
-          const modal = document.getElementById('install-modal');
-          if (modal) {
-            modal.classList.add('visible');
-          }
-        }
+          this.triggerInstallationApproaches();
+        } 
         return;
       }
       
-      window.logToConsole('User initiated app installation with captured prompt');
+      window.logToConsole('Triggering installation prompt');
       
       try {
         // Show the install prompt
@@ -690,50 +898,46 @@
         const choiceResult = await this.deferredPrompt.userChoice;
         
         if (choiceResult.outcome === 'accepted') {
-          window.logToConsole('User accepted the install prompt!');
+          window.logToConsole('User accepted the install prompt! 🎉');
           
-          // Show success feedback
+          // Trigger success animation/message
           const installBtn = document.getElementById('pwa-install-btn');
           if (installBtn) {
             installBtn.innerHTML = '<i class="fas fa-check-circle mr-2"></i> Installing...';
             installBtn.classList.add('success');
           }
           
-          // Hide any modal that might be open
-          const modal = document.getElementById('install-modal');
-          if (modal) {
-            modal.classList.remove('visible');
+          // Hide the modal if visible
+          if (this.isAndroid) {
+            const modal = document.getElementById('android-install-modal');
+            if (modal) {
+              modal.classList.remove('visible');
+            }
           }
           
-          // Hide the button after installation
-          setTimeout(() => {
-            this.hideInstallButton();
-          }, 2000);
+          // Hide the button after a successful installation
+          this.handleAppInstalled();
         } else {
           window.logToConsole('User dismissed the install prompt');
+          
+          // Keep the button visible in case they want to install later
+          setTimeout(() => {
+            if (this.isInstallable) {
+              this.showInstallButton();
+            }
+          }, 2000);
         }
       } catch (error) {
         window.logToConsole(`Error during installation: ${error.message}`, true);
         
-        // If there's an error, show the manual install modal
-        const modal = document.getElementById('install-modal');
-        if (modal) {
-          modal.classList.add('visible');
+        // For Android, try alternative methods if the prompt failed
+        if (this.isAndroid) {
+          this.triggerInstallationApproaches();
         }
       } finally {
         // Clear the prompt reference
         this.deferredPrompt = null;
       }
-    },
-    
-    // Check if the app is already installed
-    checkInstallationStatus() {
-      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
-        window.logToConsole('App is running in standalone mode!');
-        this.handleAppInstalled();
-        return true;
-      }
-      return false;
     }
   };
   
