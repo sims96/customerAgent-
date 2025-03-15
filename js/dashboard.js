@@ -1,4 +1,4 @@
-// dashboard.js - Main controller for dashboard application
+// dashboard.js - Main controller for dashboard application with improved iOS notification support
 (function() {
   'use strict';
   
@@ -6,8 +6,10 @@
   const dashboard = {
     // Properties
     fallbackPollingInterval: null,
+    iosPollingInterval: null,
     serviceWorkerFailureDetected: false,
     offlineMode: false,
+    isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream,
     
     // Initialize dashboard
     initialize: function() {
@@ -33,6 +35,12 @@
       
       // Monitor online/offline status
       this.setupConnectivityMonitor();
+      
+      // Setup iOS-specific handlers
+      if (this.isIOS) {
+        this.setupIOSSpecificHandlers();
+        window.logToConsole('iOS-specific handlers initialized');
+      }
       
       window.logToConsole('Dashboard controller initialized');
     },
@@ -178,10 +186,18 @@
         this.fallbackPollingInterval = null;
       }
       
-      // Set up new polling interval - check every 20 seconds
+      // iOS uses more frequent polling when visible
+      const pollingInterval = this.isIOS ? 15000 : 20000; // 15 seconds for iOS, 20 for others
+      
+      // Set up new polling interval
       this.fallbackPollingInterval = setInterval(async () => {
         // Skip if not connected or in offline mode
         if (!window.dashboardState || !window.dashboardState.connected || this.offlineMode) {
+          return;
+        }
+        
+        // On iOS, only poll when document is visible
+        if (this.isIOS && document.visibilityState !== 'visible') {
           return;
         }
         
@@ -225,9 +241,159 @@
         } catch (error) {
           window.logToConsole(`Fallback polling error: ${error.message}`, true);
         }
-      }, 20000); // Check every 20 seconds
+      }, pollingInterval);
       
       return this.fallbackPollingInterval;
+    },
+    
+    // Set up iOS-specific handlers for better notification experience
+    setupIOSSpecificHandlers: function() {
+      // Add visibility change handler specific to iOS
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          window.logToConsole('iOS: App became visible, checking for notifications immediately');
+          // Immediate notification check when app becomes visible again
+          this.manualNotificationCheck();
+          
+          // Try to "warm up" audio for better notification sounds
+          this.warmupIOSAudio();
+        }
+      });
+      
+      // Add touch event listener to enable audio
+      document.addEventListener('touchstart', () => {
+        this.warmupIOSAudio();
+      }, {once: true});
+      
+      // Add iOS-specific notification styles
+      this.addIOSNotificationStyles();
+    },
+    
+    // Warm up audio on iOS to allow sounds to play
+    warmupIOSAudio: function() {
+      if (window.notificationSystem && window.notificationSystem.notificationSounds) {
+        const sounds = window.notificationSystem.notificationSounds;
+        
+        Object.values(sounds).forEach(sound => {
+          if (sound && typeof sound.play === 'function') {
+            try {
+              // Set volume to silent for warmup
+              const originalVolume = sound.volume;
+              sound.volume = 0.01;
+              
+              // Play and immediately pause to "unlock" audio
+              const playPromise = sound.play();
+              if (playPromise) {
+                playPromise.then(() => {
+                  sound.pause();
+                  sound.currentTime = 0;
+                  sound.volume = originalVolume; // Restore volume
+                }).catch(e => {
+                  console.log('iOS sound warmup error:', e);
+                });
+              }
+            } catch (e) {
+              console.log('iOS sound warmup general error:', e);
+            }
+          }
+        });
+        
+        window.logToConsole('iOS: Audio system warmed up');
+      }
+    },
+    
+    // Add iOS-specific notification styles
+    addIOSNotificationStyles: function() {
+      const style = document.createElement('style');
+      style.textContent = `
+        /* iOS-specific notification styles */
+        .notification-badge {
+          animation: badge-pulse 1.5s ease infinite !important;
+        }
+        
+        @keyframes badge-pulse {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
+        }
+        
+        .ios-notification-banner {
+          position: fixed;
+          top: 65px;
+          left: 50%;
+          transform: translateX(-50%) translateY(-100px);
+          background-color: rgba(25, 29, 43, 0.95);
+          border: 1px solid rgba(255, 105, 180, 0.5);
+          border-radius: 12px;
+          padding: 12px 20px;
+          color: white;
+          font-weight: bold;
+          box-shadow: 0 4px 14px rgba(147, 112, 219, 0.4);
+          z-index: 10001;
+          text-align: center;
+          transition: transform 0.3s ease;
+        }
+        
+        .ios-notification-banner.visible {
+          transform: translateX(-50%) translateY(0);
+        }
+      `;
+      document.head.appendChild(style);
+      
+      // Create banner element
+      const banner = document.createElement('div');
+      banner.className = 'ios-notification-banner';
+      banner.innerHTML = '<strong>New Notification</strong>';
+      document.body.appendChild(banner);
+      
+      // Store reference to banner
+      this.iosBanner = banner;
+      
+      // Override notification system display for iOS if available
+      setTimeout(() => {
+        if (window.notificationSystem && window.notificationSystem.notify) {
+          const originalNotify = window.notificationSystem.notify;
+          window.notificationSystem.notify = (data, playSound = true) => {
+            // Call original method
+            const result = originalNotify.call(window.notificationSystem, data, playSound);
+            
+            // Display iOS banner when visible
+            if (document.visibilityState === 'visible') {
+              this.showIOSNotificationBanner(data.title || 'New Notification');
+            }
+            
+            return result;
+          };
+        }
+        
+        if (window.enhancedNotificationSystem && window.enhancedNotificationSystem.notify) {
+          const originalEnhancedNotify = window.enhancedNotificationSystem.notify;
+          window.enhancedNotificationSystem.notify = (data, playSound = true) => {
+            // Call original method
+            const result = originalEnhancedNotify.call(window.enhancedNotificationSystem, data, playSound);
+            
+            // Display iOS banner when visible
+            if (document.visibilityState === 'visible') {
+              this.showIOSNotificationBanner(data.title || 'New Notification');
+            }
+            
+            return result;
+          };
+        }
+      }, 2000);
+    },
+    
+    // Show iOS notification banner
+    showIOSNotificationBanner: function(message) {
+      if (!this.iosBanner || !this.isIOS) return;
+      
+      this.iosBanner.innerHTML = `<strong>${message}</strong>`;
+      this.iosBanner.classList.add('visible');
+      
+      // Hide after 3 seconds
+      setTimeout(() => {
+        this.iosBanner.classList.remove('visible');
+      }, 3000);
     },
     
     // Set up connectivity monitoring
@@ -496,6 +662,17 @@
           type: 'CHECK_NOTIFICATIONS'
         });
       }
+      
+      // If on iOS, display visual indicator that we're checking
+      if (this.isIOS && this.iosBanner) {
+        this.iosBanner.innerHTML = '<strong>Checking for notifications...</strong>';
+        this.iosBanner.classList.add('visible');
+        
+        // Hide after 2 seconds
+        setTimeout(() => {
+          this.iosBanner.classList.remove('visible');
+        }, 2000);
+      }
     },
     
     // Handle login event - sync credentials to service worker
@@ -520,6 +697,12 @@
       if (this.fallbackPollingInterval) {
         clearInterval(this.fallbackPollingInterval);
         this.fallbackPollingInterval = null;
+      }
+      
+      // Clear iOS-specific polling if exists
+      if (this.iosPollingInterval) {
+        clearInterval(this.iosPollingInterval);
+        this.iosPollingInterval = null;
       }
       
       // Update service worker status

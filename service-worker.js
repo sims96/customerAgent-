@@ -786,6 +786,25 @@ function loadCredentialsFromIndexedDB() {
   });
 }
 
+async function checkModerniOSPushSupport() {
+  // iOS 16.4+ supports standard web push
+  const userAgent = self.navigator ? self.navigator.userAgent : '';
+  const match = userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+  
+  if (match) {
+    const version = [
+      parseInt(match[1], 10),
+      parseInt(match[2], 10),
+      parseInt(match[3] || 0, 10)
+    ];
+    
+    // iOS 16.4 or later
+    return version[0] >= 16 && version[1] >= 4;
+  }
+  
+  return false;
+}
+
 // Register periodic sync for connectivity checks when service worker activates
 if ('periodicSync' in self.registration) {
   self.registration.periodicSync.register('connectivity-check', {
