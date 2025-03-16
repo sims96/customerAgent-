@@ -4,6 +4,7 @@ export class DashboardAPI {
   constructor(env) {
     this.kvStore = env.CHAT_HISTORY;
     this.adminApiKey = env.ADMIN_API_KEY;
+    this.env = env; // Store env for access to other variables
     this.MAX_CONVERSATIONS = 100; // Maximum conversations to return in listing
     // Add notification-related properties
     this.NOTIFICATION_TTL = 60 * 60 * 24 * 7; // 7 days in seconds
@@ -332,8 +333,8 @@ export class DashboardAPI {
     } catch (error) {
       console.error('Error creating test data:', error);
       return this.createResponse({
-        error: 'Failed to create test data',
-        message: error.message
+        success: false,
+        error: error.message
       }, 500);
     }
   }
@@ -454,7 +455,7 @@ export class DashboardAPI {
     }
   }
   
-  // NEW METHOD: Create a test notification
+  // Create a test notification
   async createTestNotification(type = 'help_needed') {
     try {
       console.log('Creating test notification of type:', type);
@@ -594,6 +595,253 @@ export class DashboardAPI {
     }
   }
 
+  // Get email notification recipients from KV storage with improved error handling
+  async getEmailRecipients() {
+    try {
+      console.log('Fetching email recipients from KV store');
+      
+      // List all keys to see what's available
+      const allKeys = await this.kvStore.list({ prefix: '' });
+      console.log('All KV keys:', allKeys.keys.map(k => k.name));
+      
+      // Direct KV access - use text mode first to see what's there
+      const rawData = await this.kvStore.get('staff_email_recipients');
+      console.log('Raw email recipients data:', rawData);
+      
+      // Try to parse JSON
+      let recipients;
+      if (rawData) {
+        try {
+          recipients = JSON.parse(rawData);
+          console.log('Parsed recipients:', recipients);
+        } catch (e) {
+          console.error('Error parsing recipients JSON:', e);
+          recipients = null;
+        }
+      }
+      
+      // Return default structure if none exists yet
+      if (!recipients) {
+        console.log('No email recipients found, returning default structure');
+        return {
+          notifications: {
+            help_needed: [],
+            order_confirmed: [],
+            all: []
+          }
+        };
+      }
+      
+      // If the structure doesn't have 'notifications' wrapper, add it
+      if (!recipients.notifications && (recipients.all || recipients.help_needed || recipients.order_confirmed)) {
+        console.log('Normalizing recipients structure by adding notifications wrapper');
+        return {
+          notifications: recipients
+        };
+      }
+      
+      console.log(`Retrieved ${Object.keys(recipients.notifications || {}).length} notification categories`);
+      return recipients;
+    } catch (error) {
+      console.error('Error getting email recipients:', error);
+      return {
+        notifications: {
+          help_needed: [],
+          order_confirmed: [],
+          all: []
+        }
+      };
+    }
+  }
+
+  // Save updated email recipients to KV storage with improved logging
+  async updateEmailRecipients(recipients) {
+    try {
+      console.log('Updating email recipients in KV store');
+      console.log('Recipients to save:', JSON.stringify(recipients));
+      
+      // Validate the structure
+      if (!recipients) {
+        throw new Error('Invalid email recipients structure: recipients is null');
+      }
+      
+      // Normalize structure if needed
+      let normalizedRecipients = recipients;
+      
+      // If it has direct lists without notifications wrapper, add it
+      if (!recipients.notifications && (recipients.all || recipients.help_needed || recipients.order_confirmed)) {
+        console.log('Adding notifications wrapper to recipients structure');
+        normalizedRecipients = {
+          notifications: recipients
+        };
+      }
+      
+      // Convert to string manually to avoid any serialization issues
+      const recipientsString = JSON.stringify(normalizedRecipients);
+      console.log('Stringified recipients:', recipientsString);
+      
+      // Store in KV as plain text
+      await this.kvStore.put('staff_email_recipients', recipientsString, {
+        expirationTtl: 60 * 60 * 24 * 365 // 1 year
+      });
+      
+      // Verify it was saved correctly
+      const savedData = await this.kvStore.get('staff_email_recipients');
+      console.log('Verification - saved data retrieved:', savedData);
+      
+      let parsedSaved;
+      try {
+        parsedSaved = JSON.parse(savedData);
+        console.log('Verification - successfully parsed saved data:', JSON.stringify(parsedSaved));
+      } catch (e) {
+        console.error('Verification - could not parse saved data:', e);
+      }
+      
+      console.log('Email recipients updated successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating email recipients:', error);
+      return { error: error.message, success: false };
+    }
+  }
+
+  // Send a test email to verify configuration
+  async sendTestEmail(emailAddress) {
+    try {
+      console.log(`Sending test email to ${emailAddress}`);
+      
+      // Import email service
+      const { EmailService } = await import('./emailService.js');
+      const emailService = new EmailService(this.env.RESEND_API_KEY || '');
+      
+      // Generate test email content
+      const htmlContent = emailService.generateNotificationEmail(
+        'system',
+        'Test Email from LeSims Dashboard',
+        'This is a test email to verify your email notification configuration is working correctly.',
+        null
+      );
+      
+      // Send the email
+      const result = await emailService.sendEmail(
+        emailAddress,
+        'LeSims Dashboard - Test Email',
+        htmlContent
+      );
+      
+      console.log('Test email sent successfully');
+      return { success: true, id: result.id };
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      return { error: error.message, success: false };
+    }
+  }
+
+  // Debug endpoint for email recipients
+  async debugEmailRecipients() {
+    try {
+      console.log('API request: Debug email recipients');
+      
+      // Direct KV access to check what's actually stored
+      const rawData = await this.kvStore.get('staff_email_recipients');
+      const allKeys = await this.kvStore.list({ prefix: '' });
+      
+      // Try to parse the raw data if it exists
+      let parsedData = null;
+      if (rawData) {
+        try {
+          parsedData = JSON.parse(rawData);
+        } catch (e) {
+          console.error('Error parsing raw data:', e);
+        }
+      }
+      
+      return {
+        status: 'debug',
+        rawDataExists: !!rawData,
+        rawDataLength: rawData ? rawData.length : 0,
+        parsedData: parsedData,
+        allKVKeys: allKeys.keys.map(k => k.name),
+        timestamp: Date.now()
+      };
+    } catch (error) {
+      console.error('Error in debug endpoint:', error);
+      return { 
+        error: 'Debug error', 
+        message: error.message 
+      };
+    }
+  }
+
+  // Public test endpoint that doesn't require authentication
+  async handlePublicTestEmail(request) {
+    try {
+      console.log('Handling public test email request');
+      
+      const data = await request.json();
+      const email = data.email || 'simondomfabrice@gmail.com';
+      
+      console.log(`Processing public test email to ${email}`);
+      
+      // Import email service
+      const { EmailService } = await import('./emailService.js');
+      const emailService = new EmailService(this.env.RESEND_API_KEY || '');
+      
+      // Generate test email content
+      const htmlContent = emailService.generateNotificationEmail(
+        'system',
+        'Public Test Email from LeSims Dashboard',
+        'This is a direct test of the email notification system. Multiple recipients should receive this email.',
+        null
+      );
+      
+      // Send to multiple recipients
+      const recipients = [email, 'lesimscomplex@gmail.com'];
+      console.log(`Sending to multiple recipients: ${JSON.stringify(recipients)}`);
+      
+      const results = [];
+      
+      for (const recipient of recipients) {
+        try {
+          console.log(`Sending to ${recipient}...`);
+          const result = await emailService.sendEmail(
+            recipient,
+            'LeSims Dashboard - Multi-Recipient Test',
+            htmlContent
+          );
+          console.log(`Success for ${recipient}: ${result.id}`);
+          results.push({ email: recipient, success: true, id: result.id });
+        } catch (error) {
+          console.error(`Failed for ${recipient}:`, error);
+          results.push({ email: recipient, success: false, error: error.message });
+        }
+      }
+      
+      // Retrieve recipients from KV for debugging
+      const recipientsData = await this.kvStore.get('staff_email_recipients');
+      console.log('KV data:', recipientsData);
+      
+      let parsedData = null;
+      try {
+        parsedData = recipientsData ? JSON.parse(recipientsData) : null;
+      } catch (e) {
+        console.error('Could not parse KV data:', e);
+      }
+      
+      return {
+        success: true,
+        results,
+        kvData: parsedData
+      };
+    } catch (error) {
+      console.error('Error in public test email:', error);
+      return { 
+        error: error.message, 
+        success: false 
+      };
+    }
+  }
+
   // Route API requests
   async handleRequest(request, url) {
     console.log(`Handling API request: ${request.method} ${url.pathname}`);
@@ -601,6 +849,12 @@ export class DashboardAPI {
     // Handle preflight requests
     if (request.method === 'OPTIONS') {
       return this.handleOptions();
+    }
+    
+    // Public endpoint for email testing that doesn't require auth
+    if (url.pathname === '/api/public-test-email' && request.method === 'POST') {
+      console.log('API request: Public test email (no auth required)');
+      return this.createResponse(await this.handlePublicTestEmail(request));
     }
     
     // Validate API key for all other requests
@@ -668,6 +922,34 @@ export class DashboardAPI {
       if (path === '/api/notifications/check' && request.method === 'POST') {
         console.log('Routing to checkConversationsForNotifications');
         const result = await this.checkConversationsForNotifications();
+        return this.createResponse(result);
+      }
+      
+      // Email endpoints
+      if (path === '/api/email-recipients' && request.method === 'GET') {
+        console.log('API request: Get email recipients');
+        return this.createResponse(await this.getEmailRecipients());
+      }
+      
+      if (path === '/api/email-recipients' && request.method === 'PUT') {
+        console.log('API request: Update email recipients');
+        const data = await request.json();
+        return this.createResponse(await this.updateEmailRecipients(data));
+      }
+      
+      if (path === '/api/email-recipients/test' && request.method === 'POST') {
+        console.log('API request: Send test email');
+        const data = await request.json();
+        if (!data.email) {
+          return this.createResponse({ error: 'Email address is required' }, 400);
+        }
+        return this.createResponse(await this.sendTestEmail(data.email));
+      }
+      
+      // Debug endpoint for email recipients
+      if (path === '/api/debug/email-recipients' && request.method === 'GET') {
+        console.log('API request: Debug email recipients');
+        const result = await this.debugEmailRecipients();
         return this.createResponse(result);
       }
       
