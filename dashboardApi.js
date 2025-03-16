@@ -737,6 +737,50 @@ export class DashboardAPI {
     }
   }
 
+  // Test sending from verified domain
+  async testVerifiedDomain(testEmail) {
+    try {
+      console.log(`Testing verified domain with email to: ${testEmail}`);
+      
+      // Import email service
+      const { EmailService } = await import('./emailService.js');
+      const emailService = new EmailService(this.env.RESEND_API_KEY || '');
+      
+      // Generate test email content
+      const htmlContent = emailService.generateNotificationEmail(
+        'system',
+        'Verified Domain Test',
+        `This is a test email sent from your verified domain (${emailService.fromDomain}).<br><br>
+        If you received this email, your domain verification is working correctly!`,
+        null
+      );
+      
+      // Send the email
+      const result = await emailService.sendEmail(
+        testEmail,
+        'LeSims Dashboard - Verified Domain Test',
+        htmlContent
+      );
+      
+      console.log('Domain verification test email sent successfully:', result);
+      
+      return {
+        success: true,
+        message: `Verified domain test email sent to ${testEmail}`,
+        fromDomain: emailService.fromDomain,
+        id: result.id
+      };
+    } catch (error) {
+      console.error('Error in domain verification test:', error);
+      return {
+        success: false,
+        error: error.message,
+        errorDetails: error.responseText || '',
+        fromDomain: error.fromEmail || ''
+      };
+    }
+  }
+
   // Debug endpoint for email recipients
   async debugEmailRecipients() {
     try {
@@ -773,6 +817,107 @@ export class DashboardAPI {
     }
   }
 
+  // Test email to all recipients
+  async testEmailToAllRecipients() {
+    try {
+      console.log('Testing email delivery to all configured recipients');
+      
+      // Get current recipients
+      const recipients = await this.getEmailRecipients();
+      console.log('Current recipient configuration:', JSON.stringify(recipients));
+      
+      if (!recipients || !recipients.notifications) {
+        return {
+          success: false,
+          error: 'No recipients configuration found'
+        };
+      }
+      
+      // Import email service
+      const { EmailService } = await import('./emailService.js');
+      const emailService = new EmailService(this.env.RESEND_API_KEY || '');
+      
+      // Collect all unique recipients
+      const allRecipients = new Set();
+      
+      // Add from all category
+      if (recipients.notifications.all && Array.isArray(recipients.notifications.all)) {
+        recipients.notifications.all.forEach(email => allRecipients.add(email));
+      }
+      
+      // Add from help_needed category
+      if (recipients.notifications.help_needed && Array.isArray(recipients.notifications.help_needed)) {
+        recipients.notifications.help_needed.forEach(email => allRecipients.add(email));
+      }
+      
+      // Add from order_confirmed category
+      if (recipients.notifications.order_confirmed && Array.isArray(recipients.notifications.order_confirmed)) {
+        recipients.notifications.order_confirmed.forEach(email => allRecipients.add(email));
+      }
+      
+      console.log(`Found ${allRecipients.size} unique recipient(s) across all categories`);
+      
+      if (allRecipients.size === 0) {
+        return {
+          success: false,
+          error: 'No recipients found in configuration'
+        };
+      }
+      
+      // Generate test email content
+      const htmlContent = emailService.generateNotificationEmail(
+        'system',
+        'Email Delivery Test',
+        'This is a diagnostic test to verify email delivery to all configured recipients.',
+        null
+      );
+      
+      // Send test email to each recipient
+      const results = [];
+      for (const email of allRecipients) {
+        try {
+          console.log(`Diagnostic test: Sending to ${email}...`);
+          const result = await emailService.sendEmail(
+            email,
+            'LeSims Dashboard - Diagnostic Test',
+            htmlContent
+          );
+          console.log(`Success for ${email}: ${result.id}`);
+          results.push({
+            email,
+            success: true,
+            id: result.id
+          });
+        } catch (error) {
+          console.error(`Failed for ${email}:`, error);
+          results.push({
+            email,
+            success: false,
+            error: error.message,
+            details: error.responseText || ''
+          });
+        }
+        
+        // Add slight delay between sends to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      return {
+        success: true,
+        results,
+        recipientCount: allRecipients.size,
+        successCount: results.filter(r => r.success).length,
+        failureCount: results.filter(r => !r.success).length
+      };
+    } catch (error) {
+      console.error('Error in testEmailToAllRecipients:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
   // Public test endpoint that doesn't require authentication
   async handlePublicTestEmail(request) {
     try {
@@ -791,48 +936,43 @@ export class DashboardAPI {
       const htmlContent = emailService.generateNotificationEmail(
         'system',
         'Public Test Email from LeSims Dashboard',
-        'This is a direct test of the email notification system. Multiple recipients should receive this email.',
+        'This is a direct test of the email notification system.',
         null
       );
       
-      // Send to multiple recipients
-      const recipients = [email, 'lesimscomplex@gmail.com'];
-      console.log(`Sending to multiple recipients: ${JSON.stringify(recipients)}`);
-      
-      const results = [];
-      
-      for (const recipient of recipients) {
-        try {
-          console.log(`Sending to ${recipient}...`);
-          const result = await emailService.sendEmail(
-            recipient,
-            'LeSims Dashboard - Multi-Recipient Test',
-            htmlContent
-          );
-          console.log(`Success for ${recipient}: ${result.id}`);
-          results.push({ email: recipient, success: true, id: result.id });
-        } catch (error) {
-          console.error(`Failed for ${recipient}:`, error);
-          results.push({ email: recipient, success: false, error: error.message });
-        }
-      }
-      
-      // Retrieve recipients from KV for debugging
-      const recipientsData = await this.kvStore.get('staff_email_recipients');
-      console.log('KV data:', recipientsData);
-      
-      let parsedData = null;
+      // Send only to the specified email instead of hardcoding multiple recipients
       try {
-        parsedData = recipientsData ? JSON.parse(recipientsData) : null;
-      } catch (e) {
-        console.error('Could not parse KV data:', e);
+        console.log(`Sending test email to ${email}...`);
+        const result = await emailService.sendEmail(
+          email,
+          'LeSims Dashboard - Test Email',
+          htmlContent
+        );
+        console.log(`Success for ${email}: ${result.id}`);
+        
+        // Retrieve recipients from KV for debugging
+        const recipientsData = await this.kvStore.get('staff_email_recipients');
+        console.log('KV data:', recipientsData);
+        
+        let parsedData = null;
+        try {
+          parsedData = recipientsData ? JSON.parse(recipientsData) : null;
+        } catch (e) {
+          console.error('Could not parse KV data:', e);
+        }
+        
+        return {
+          success: true,
+          result: { email, success: true, id: result.id },
+          kvData: parsedData
+        };
+      } catch (error) {
+        console.error(`Failed for ${email}:`, error);
+        return { 
+          error: error.message, 
+          success: false 
+        };
       }
-      
-      return {
-        success: true,
-        results,
-        kvData: parsedData
-      };
     } catch (error) {
       console.error('Error in public test email:', error);
       return { 
@@ -841,6 +981,91 @@ export class DashboardAPI {
       };
     }
   }
+
+  async testResendDirectly(email) {
+    try {
+      console.log('Testing Resend API directly with verified domain');
+      
+      // Get the API key
+      const resendApiKey = this.env.RESEND_API_KEY;
+      if (!resendApiKey) {
+        return {
+          success: false,
+          error: 'Resend API key not found in environment variables'
+        };
+      }
+      
+      // Domain to test with
+      const domain = 'complexelesims.com';
+      const fromEmail = `notifications@${domain}`;
+      
+      // Create simple HTML content
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+          <h2 style="color: #9370DB;">Direct API Test</h2>
+          <p>This is a direct API test from domain: ${domain}</p>
+          <p>Time: ${new Date().toISOString()}</p>
+        </div>
+      `;
+      
+      // Make direct request to Resend API
+      console.log(`Making direct request to Resend API with domain: ${domain}`);
+      
+      const requestBody = {
+        from: `LeSims Restaurant <${fromEmail}>`,
+        to: email,
+        subject: 'Direct API Test',
+        html: htmlContent
+      };
+      
+      console.log('Direct API request body:', JSON.stringify(requestBody, null, 2));
+      
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+      
+      // Get response as text first in case it's not JSON
+      const responseText = await response.text();
+      console.log('API response status:', response.status);
+      console.log('API response text:', responseText);
+      
+      // Try to parse as JSON if possible
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+      } catch (e) {
+        responseData = { text: responseText };
+      }
+      
+      if (response.ok) {
+        return {
+          success: true,
+          message: 'Direct API test successful',
+          response: responseData,
+          domain: domain
+        };
+      } else {
+        return {
+          success: false,
+          error: `API error: ${response.status}`,
+          response: responseData,
+          domain: domain
+        };
+      }
+    } catch (error) {
+      console.error('Error in direct Resend API test:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+  
 
   // Route API requests
   async handleRequest(request, url) {
@@ -946,6 +1171,22 @@ export class DashboardAPI {
         return this.createResponse(await this.sendTestEmail(data.email));
       }
       
+      // Add endpoint for testing verified domain
+      if (path === '/api/email-recipients/domain-test' && request.method === 'POST') {
+        console.log('API request: Test verified domain');
+        const data = await request.json();
+        if (!data.email) {
+          return this.createResponse({ error: 'Email address is required' }, 400);
+        }
+        return this.createResponse(await this.testVerifiedDomain(data.email));
+      }
+      
+      // Add endpoint for diagnostic email test
+      if (path === '/api/email-recipients/diagnostic' && request.method === 'POST') {
+        console.log('API request: Run email diagnostic test');
+        return this.createResponse(await this.testEmailToAllRecipients());
+      }
+      
       // Debug endpoint for email recipients
       if (path === '/api/debug/email-recipients' && request.method === 'GET') {
         console.log('API request: Debug email recipients');
@@ -959,6 +1200,17 @@ export class DashboardAPI {
         const data = await request.json();
         return await this.createTestData(data.userId || `test_${Date.now()}`);
       }
+
+      // Add this endpoint to handleRequest
+if (path === '/api/email-recipients/direct-test' && request.method === 'POST') {
+  console.log('API request: Test Resend API directly');
+  const data = await request.json();
+  if (!data.email) {
+    return this.createResponse({ error: 'Email address is required' }, 400);
+  }
+  return this.createResponse(await this.testResendDirectly(data.email));
+}
+
       
       // If we get here, the endpoint doesn't exist
       console.log(`Endpoint not found: ${path}`);
@@ -972,3 +1224,5 @@ export class DashboardAPI {
     }
   }
 }
+
+
