@@ -46,9 +46,9 @@
         }
         
         // Create a promise that can be referenced elsewhere
-        this.registrationPromise = navigator.serviceWorker.register('/service-worker.js', {
+        this.registrationPromise = navigator.serviceWorker.register('./service-worker.js', {
           // Expanding scope to control the entire origin
-          scope: '/'
+          scope: '/src/'
         }).then(registration => {
           this.registration = registration;
           window.logToConsole('ServiceWorker registered successfully with scope: ' + registration.scope);
