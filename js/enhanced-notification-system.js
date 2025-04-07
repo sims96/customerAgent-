@@ -1,5 +1,5 @@
 // enhanced-notification-system.js - Improved notification system with smooth scrolling and navigation
-// Enhanced for iOS notification support
+// Enhanced for iOS notification support and new customer notification types
 (function() {
   'use strict';
   
@@ -503,6 +503,8 @@
           
           <div class="notification-filters">
             <div class="notification-filter active" data-filter="all">All</div>
+            <div class="notification-filter" data-filter="new_customer">New Customers</div>
+            <div class="notification-filter" data-filter="returning_customer">Returning</div>
             <div class="notification-filter" data-filter="help_needed">Help Needed</div>
             <div class="notification-filter" data-filter="order_confirmed">Orders</div>
             <div class="notification-filter" data-filter="system">System</div>
@@ -861,9 +863,10 @@
       };
       
       try {
-        // Initialize regular sounds
+        // Initialize regular sounds with new notification types
         this.notificationSounds = {
           'new_customer': new Audio('./notification-sounds/new-customer.mp3'),
+          'returning_customer': new Audio('./notification-sounds/new-customer.mp3'), // Reuse sound for returning customers
           'order_confirmed': new Audio('./notification-sounds/order-confirmed.mp3'),
           'help_needed': new Audio('./notification-sounds/help-needed.mp3'),
           'system': createSilentSound(),
@@ -900,6 +903,7 @@
         // Fallback to silent sounds
         this.notificationSounds = {
           'new_customer': createSilentSound(),
+          'returning_customer': createSilentSound(),
           'order_confirmed': createSilentSound(),
           'help_needed': createSilentSound(),
           'system': createSilentSound(),
@@ -1035,6 +1039,10 @@
           case 'new_customer':
             icon = 'user-plus';
             bgClass = 'bg-green-800';
+            break;
+          case 'returning_customer':
+            icon = 'user-check';
+            bgClass = 'bg-teal-800';
             break;
           case 'order_confirmed':
             icon = 'shopping-cart';

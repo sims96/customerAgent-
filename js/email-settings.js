@@ -9,6 +9,8 @@
       notifications: {
         help_needed: [],
         order_confirmed: [],
+        new_customer: [],        // Added for new customer notifications
+        returning_customer: [],  // Added for returning customer notifications
         all: []
       }
     },
@@ -38,6 +40,8 @@
       // Add email buttons
       document.getElementById('add-help-email')?.addEventListener('click', () => this.addEmail('help_needed'));
       document.getElementById('add-order-email')?.addEventListener('click', () => this.addEmail('order_confirmed'));
+      document.getElementById('add-new-customer-email')?.addEventListener('click', () => this.addEmail('new_customer'));
+      document.getElementById('add-returning-customer-email')?.addEventListener('click', () => this.addEmail('returning_customer'));
       document.getElementById('add-all-email')?.addEventListener('click', () => this.addEmail('all'));
       
       // Save button
@@ -60,6 +64,14 @@
       
       document.getElementById('order-email-input')?.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') this.addEmail('order_confirmed');
+      });
+
+      document.getElementById('new-customer-email-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.addEmail('new_customer');
+      });
+
+      document.getElementById('returning-customer-email-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') this.addEmail('returning_customer');
       });
       
       document.getElementById('all-email-input')?.addEventListener('keydown', (e) => {
@@ -151,6 +163,8 @@
             notifications: {
               help_needed: [],
               order_confirmed: [],
+              new_customer: [],        // Add new notification types
+              returning_customer: [],
               all: []
             }
           };
@@ -199,6 +213,8 @@
       let inputId;
       if (type === 'help_needed') inputId = 'help-email-input';
       else if (type === 'order_confirmed') inputId = 'order-email-input';
+      else if (type === 'new_customer') inputId = 'new-customer-email-input';
+      else if (type === 'returning_customer') inputId = 'returning-customer-email-input';
       else inputId = 'all-email-input';
       
       const inputElement = document.getElementById(inputId);
@@ -282,6 +298,32 @@
           });
         } else {
           orderList.innerHTML = '<div class="text-gray-500 text-sm">No recipients configured</div>';
+        }
+      }
+      
+      // New customer emails
+      const newCustomerList = document.getElementById('new-customer-email-list');
+      if (newCustomerList) {
+        newCustomerList.innerHTML = '';
+        if (this.recipients.notifications.new_customer && this.recipients.notifications.new_customer.length > 0) {
+          this.recipients.notifications.new_customer.forEach(email => {
+            newCustomerList.appendChild(this.createEmailItem('new_customer', email));
+          });
+        } else {
+          newCustomerList.innerHTML = '<div class="text-gray-500 text-sm">No recipients configured</div>';
+        }
+      }
+      
+      // Returning customer emails
+      const returningCustomerList = document.getElementById('returning-customer-email-list');
+      if (returningCustomerList) {
+        returningCustomerList.innerHTML = '';
+        if (this.recipients.notifications.returning_customer && this.recipients.notifications.returning_customer.length > 0) {
+          this.recipients.notifications.returning_customer.forEach(email => {
+            returningCustomerList.appendChild(this.createEmailItem('returning_customer', email));
+          });
+        } else {
+          returningCustomerList.innerHTML = '<div class="text-gray-500 text-sm">No recipients configured</div>';
         }
       }
       
